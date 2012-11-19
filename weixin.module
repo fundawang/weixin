@@ -58,51 +58,51 @@ class Wechat
  * Implementation of hook_help().
  */
 function weixin_help($path, $arg) {
-  $output = '';
-  switch ($path) {
-    case 'admin/config/services/weixin':
-    	$output = '<p>'.t('In this page, you could set various settings regarding weixin public platform.').'</p>';
-    	break;
-  }
-  return $output;
+	$output = '';
+	switch ($path) {
+		case 'admin/config/services/weixin':
+			$output = '<p>'.t('In this page, you could set various settings regarding weixin public platform.').'</p>';
+		break;
+	}
+	return $output;
 }
 
 /**
  * Implementation of hook_menu().
  */
 function weixin_menu() {
-  $items['admin/config/services/weixin'] = array(
-    'title' => 'weixin rules',
-    'description' => 'weixin configuration and customized rules for response.',
-    'access arguments' => array('access administration pages'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('weixin_admin_form'),
-  );
-  $items['weixin'] = array(
-    'title' => 'weixin',
-    'description' => 'weixin interface',
-    'page callback' => 'weixin_response',
-    'access callback' => 'weixin_response_access',
-    'type' => MENU_CALLBACK,
-  );
-  return $items;
+	$items['admin/config/services/weixin'] = array(
+		'title' => 'weixin rules',
+		'description' => 'weixin configuration and customized rules for response.',
+		'access arguments' => array('access administration pages'),
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('weixin_admin_form'),
+	);
+	$items['weixin'] = array(
+		'title' => 'weixin',
+		'description' => 'weixin interface',
+		'page callback' => 'weixin_response',
+		'access callback' => 'weixin_response_access',
+		'type' => MENU_CALLBACK,
+	);
+	return $items;
 }
 
 function weixin_admin_form($form, $form_state) {
-  $form['weixinid'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Site global weixin id'),
-    '#description' => t('Messages sent to other weixinid will be ignored automatically.'),
-    '#default_value' => variable_get('weixinid', ''),
-    '#required' => TRUE,
-  );
-  $form['weixintoken'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Token'),
-    '#description' => t('The token set in weixin public platform.'),
-    '#default_value' => variable_get('weixintoken', ''),
-    '#required' => TRUE,
-  );
+	$form['weixinid'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Site global weixin id'),
+		'#description' => t('Messages sent to other weixinid will be ignored automatically.'),
+		'#default_value' => variable_get('weixinid', ''),
+		'#required' => TRUE,
+	);
+	$form['weixintoken'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Token'),
+		'#description' => t('The token set in weixin public platform.'),
+		'#default_value' => variable_get('weixintoken', ''),
+		'#required' => TRUE,
+	);
 	return system_settings_form($form);;
 }
 
