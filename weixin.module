@@ -133,6 +133,7 @@ function weixin_response() {
 	if(!$weechat->username) exit;
 	
 	$r=$weechat->content.t(' recieved.');
+	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
 	echo $weechat->response($r);
 	
 	watchdog('weixin',
