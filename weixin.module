@@ -35,12 +35,30 @@ class Wechat
 		if( $tmpStr == $signature ) return TRUE;
 		else return FALSE;
 	}
+	
+	public function pharsePost($post) {
+		$postObj = simplexml_load_string($post, 'SimpleXMLElement', LIBXML_NOCDATA);
+		if($postObj!= FALSE && $this->wxid == $postObj->ToUserName) {
+			$this->username = $postObj->FromUserName;
+			$this->content = trim($postObj->Content);
+		}
+		unset($postObj);
+	}
+	
+	public function response($keyword) {
+		$textTpl = "<xml><ToUserName><![CDATA[%s]]></ToUserName><FromUserName><![CDATA[%s]]></FromUserName><CreateTime>%s</CreateTime><MsgType><![CDATA[%s]]></MsgType><Content><![CDATA[%s]]></Content><FuncFlag>1</FuncFlag></xml>";
+		$msgType = "text";
+		$time=time();
+		$resultStr = sprintf($textTpl, $this->username, $this->wxid, $time, $msgType, $keyword);
+		return $resultStr;
+	}
 }
 
 /**
  * Implementation of hook_help().
  */
 function weixin_help($path, $arg) {
+  $output = '';
   switch ($path) {
     case 'admin/config/services/weixin':
     	$output = '<p>'.t('In this page, you could set various settings regarding weixin public platform.').'</p>';
@@ -102,13 +120,25 @@ function weixin_response() {
 	// If $_GET["echostr"] is set, then echo it and exit.
 	if(isset($_GET['echostr'])) {
 		watchdog('weixin',
-			'Site connected with weixin public platform via %wxid (token %token).',
-			array('%wxid' => $wxid, '%token' => $token),
+			'Site connected with weixin public platform via @wxid (token @token).',
+			array('@wxid' => $wxid, '@token' => $token),
 			WATCHDOG_INFO
 		);
 		echo $_GET['echostr'];
 		exit;
 	}
+	
+	// Fill up relative structure
+	$weechat->pharsePost(file_get_contents("php://input"));
+	$r=$weechat->content.t(' recieved.');
+	echo $weechat->response($weechat->content.t(' recieved.'));
+	
+	watchdog('weixin',
+		'Recieved @content and returned @response',
+		array('@content'=>($weechat->content), '@response'=>$r),
+		WATCHDOG_DEBUG
+	); 
+	exit; 
 }
 
 function weixin_response_access() {
