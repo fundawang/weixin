@@ -1,0 +1,9 @@
+This repo is used to connect to Wechat public platform (http://mp.weixin.qq.com).
+
+USAGE
+=====
+The response interface is located at '/weixin' of your site. And, you may
+set your id of public weixin account, token at Admin > Configuration >
+Web Service > Weixin.
+
+A sample response ships with this module now.
