@@ -94,11 +94,21 @@ function weixin_admin_form_submit($form, $form_state) {
 }
 
 function weixin_response() {
-	$weechat = new Wechat(variable_get('weixintoken', ''), $_GET, variable_get('weixinid', ''));
+	$wxid=variable_get('weixinid', '');
+	$token=variable_get('weixintoken', '');
+	$weechat = new Wechat($token, $_GET, $wxid);
 	// If wxid is not set, the the request is invalid.
 	if(!$weechat->wxid) exit;
 	// If $_GET["echostr"] is set, then echo it and exit.
-	if(isset($_GET['echostr'])) { echo $_GET['echostr']; exit; }
+	if(isset($_GET['echostr'])) {
+		watchdog('weixin',
+			'Site connected with weixin public platform via %wxid (token %token).',
+			array('%wxid' => $wxid, '%token' => $token),
+			WATCHDOG_INFO
+		);
+		echo $_GET['echostr'];
+		exit;
+	}
 }
 
 function weixin_response_access() {
