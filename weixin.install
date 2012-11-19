@@ -28,6 +28,12 @@ $schema['users_weixin'] = array(
 			'not null' => TRUE,
 			'description' => t('Unique Key: weixin_openid.'),
 		),
+		'status' => array(
+			'type' => 'int',
+			'size' => 'tiny',
+			'not null' => TRUE,
+			'default' => 0,
+		),
 	),
 	'primary key' => array('uid'),
 	'unique keys'  => array(
