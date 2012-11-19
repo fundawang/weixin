@@ -9,6 +9,7 @@
  * Provides features interacting with weixin public open platform.
  */
 
+define("WEIXIN_SEED_LENGTH",8);
 
 // Define weixin class
 // Constructor: $wee = new Wechat($token, $_GET, $wxid);
@@ -62,9 +63,23 @@ function weixin_help($path, $arg) {
 	switch ($path) {
 		case 'admin/config/services/weixin':
 			$output = '<p>'.t('In this page, you could set various settings regarding weixin public platform.').'</p>';
-		break;
+			break;
+		case 'user/%/weixin':
+			$output = '<p>'.t('In this page, you could bind your account with a weixin id, or detach your account from existing weixin id.').'</p>';
+			break;
 	}
 	return $output;
+}
+
+/**
+ * Implementation of hook_permission
+ */
+function weixin_permission() {
+	return array(
+		'allow weixin binding' => array(
+			'title' => t('Allow binding with weixin account'),
+		),
+	);
 }
 
 /**
@@ -85,10 +100,25 @@ function weixin_menu() {
 		'access callback' => 'weixin_response_access',
 		'type' => MENU_CALLBACK,
 	);
+	$items['user/%user/weixin'] = array(
+		'title' => 'Weixin binding',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('weixin_user_binding',1),
+		'type' => MENU_LOCAL_TASK,
+		'access callback' => 'user_access',
+		'access arguments'=> array('allow weixin binding'),
+	);
 	return $items;
 }
 
 function weixin_admin_form($form, $form_state) {
+	$form['weixinname'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Site global weixin account name'),
+		'#description' => t('Weixin account name to display in binding page.'),
+		'#default_value' => variable_get('weixinname', ''),
+		'#required' => TRUE,
+	);
 	$form['weixinid'] = array(
 		'#type' => 'textfield',
 		'#title' => t('Site global weixin id'),
@@ -107,6 +137,7 @@ function weixin_admin_form($form, $form_state) {
 }
 
 function weixin_admin_form_submit($form, $form_state) {
+	variable_set('weixinname',$form_state['values']['weixinname']);
 	variable_set('weixinid',$form_state['values']['weixinid']);
 	variable_set('weixintoken',$form_state['values']['weixintoken']);
 }
@@ -132,13 +163,18 @@ function weixin_response() {
 	$weechat->pharsePost(file_get_contents("php://input"));
 	if(!$weechat->username) exit;
 	
-	$r=$weechat->content.t(' recieved.');
+	$user=array('uid'=>0);
+	$r=db_select('users_weixin','u')->condition('u.wx_openid',$weechat->username)->fields('u',array('uid'))->execute()->fetchObject();
+	if(isset($r->uid))
+		$user=user_load($r->uid);
+	$result=implode(module_invoke_all('weixin', $weechat, $user),'\n');
 	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
-	echo $weechat->response($r);
+	if(empty($result)) $result=t('Sorry, but I cannot understand what you are taking about.');
+	echo $weechat->response($result);
 	
 	watchdog('weixin',
 		'Recieved @content and returned @response',
-		array('@content'=>($weechat->content), '@response'=>$r),
+		array('@content'=>($weechat->content), '@response'=>$result),
 		WATCHDOG_DEBUG
 	); 
 	exit; 
@@ -146,4 +182,105 @@ function weixin_response() {
 
 function weixin_response_access() {
 	return TRUE;
+}
+
+function weixin_user_binding($form, $form_state, $user) {
+	$r=db_select('users_weixin','u')->fields('u')->condition('u.uid',$user->uid)->countQuery()->execute()->fetchField();
+	$form=array();
+	$form['user']=array(
+		'#type' => 'hidden',
+		'#value' => $user->uid,
+	);
+	// Means it has been bound with
+	if($r) { // this user has already bound with weixin account
+		$form['description']=array(
+			'#type' => 'markup',
+			'#markup' => '<p>'.'<img src="/'.drupal_get_path('module', 'weixin') . '/weixin_100.png" align="left" width="100" heigh="125" style="padding: 10px"/>'.t('It seems that you have already bound your account with weixin id.').t('If you want to detach your account, please click following button.').'</p>',
+		);
+		$form['submit'] = array(
+			'#type' => 'submit',
+			'#value' => t('Unbound'),
+			'#submit' => array('weixin_user_binding_unbound'),
+		);
+	} else {
+		$seed='';
+		$validationcode='';
+		$allowable_characters = 'ABCDEFHKLMNPQRSTUVWXYZ';
+		$len = strlen($allowable_characters) - 1;
+		for($i=0;$i<WEIXIN_SEED_LENGTH;$i++) {
+			$seed.=$allowable_characters[mt_rand(0, $len)];
+			$validationcode.=$allowable_characters[mt_rand(0, $len)];
+		}
+		db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
+		db_insert('weixin_validation')->fields(array(
+			'uid' => $user->uid,
+			'seed' => $seed,
+			'validation_code' => $validationcode,
+			'expiration_time'=> time()+300,
+		))->execute();
+		$form['description']=array(
+			'#type' => 'markup',
+			'#markup' => '<p><img src="/'.drupal_get_path('module', 'weixin') . '/weixin_100.png" align="right" width="100" heigh="125" style="padding: 10px"/>'.t('You haven\'t bound your account with weixin id.').t('If you want to bind your account, please do as following.').'</p>',
+		);
+		$form['step1']=array(
+			'#type' => 'item',
+			'#title' => '1. '.t('Follow <code>@code</code> in your weixin client',array('@code'=>variable_get('weixinname', ''))),
+			'#description' => '<div><img src="/'.drupal_get_path('module', 'weixin').'/qrcode.jpg" valign="top"/>'.t('Scan this qrcode or search <code>@code</code> in your weixin client.', array('@code'=>variable_get('weixinname', ''))).'</div>',
+		);
+		$form['step2']=array(
+			'#type' => 'textfield',
+			'#size' => 10,
+			'#disabled' => TRUE,
+			'#value' => $seed,
+			'#title' => '2. '.t('Send following code to <code>@code</code>' ,array('@code'=>variable_get('weixinname', ''))),
+			'#markup' => '<span>ddd',
+			'#description' => t('The code will expire in five minutes. If time passed, please refresh the page.'),
+			'#attributes'=>array('style'=>'font-size: 40px'),
+		);
+		$form['step3']=array(
+			'#type' => 'textfield',
+			'#size' => 10,
+			'#title' => '3. '.t('Enter the validation code here'),
+			'#description' => t('Input the validation code you received in your weixin client.'),
+			'#attributes'=>array('style'=>'font-size: 40px'),
+		);
+		$form['submit'] = array(
+			'#type' => 'submit',
+			'#value' => t('Bind my account'),
+		);
+	}
+	
+	return $form;
+}
+
+function weixin_user_binding_unbound($form, $form_state) {
+	$user=user_load($form_state['values']['user']);
+	db_delete('users_weixin')->condition('uid',$user->uid)->execute();
+	watchdog('weixin',
+		'@user detached his weixin account.',
+		array('@user'=>$user->name),
+		WATCHDOG_INFO
+	); 
+	drupal_set_message(t('Weixin acccount detached.'));
+}
+
+function weixin_weixin($weechat, $user) {
+	$content=trim($weechat->content);
+	// If sent given number of ucase chars, then validate it.
+	if(preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
+		$r=db_select('weixin_validation','w')->fields('w')->condition('seed',$content)->execute()->fetchObject();
+		if($r) {
+			if($r->expiration_time < time())
+				$t=t('The code you have entered has expired. Please fresh the page.');
+			else {
+				$t=t('Your validation code is @code, please input it at website.', array('@code' => $r->validation_code));
+				db_insert('users_weixin')->fields(array(
+					'uid' => $user->uid,
+					'wx_openid' => $weechat->username,
+					'status' => 0,
+				))->execute();
+			}
+		}
+	}
+	if(isset($t)) return $t;
 }
