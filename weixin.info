@@ -1,0 +1,6 @@
+name = Weixin Response
+description = Provides features interacting with weixin public open platform.
+package = Weixin
+core = 7.x
+
+version = 0.1.20121119

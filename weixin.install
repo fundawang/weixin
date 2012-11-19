@@ -1,0 +1,112 @@
+<?php
+
+/*
+ * This file is licensed under GPLv2+.
+*/
+
+/**
+ * @file
+ * Install, update and uninstall functions for the weixin module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function weixin_schema() {
+// users_weixin connection
+$schema['users_weixin'] = array(
+	'description' => t('Provides binding information between users and weixin openid'),
+	'fields' => array(
+		'uid' => array(
+			'type' => 'int',
+			'not null' => TRUE,
+			'description' => t('Primary Key: Unique user ID.'),
+		),
+		'wx_openid' => array(
+			'type' => 'varchar',
+			'length' => '50',
+			'not null' => TRUE,
+			'description' => t('Unique Key: weixin_openid.'),
+		),
+	),
+	'primary key' => array('uid'),
+	'unique keys'  => array(
+		'wx_openid' => array('wx_openid'),
+	),
+);
+
+// weixin binding and validation codes
+$schema['weixin_validation'] = array(
+	'description' => t('Provides temporary information when binding users and weixin openid'),
+	'fields' => array(
+		'uid' => array(
+			'type' => 'int',
+			'not null' => TRUE,
+			'description' => t('Primary Key: Unique user ID.'),
+		),
+		'seed' => array(
+			'type' => 'varchar',
+			'length' => '50',
+			'not null' => TRUE,
+			'description' => t('Unique Key: seed to display on the web.'),
+		),
+		'validation_code' => array(
+			'type' => 'varchar',
+			'length' => '50',
+			'not null' => TRUE,
+			'description' => t('Unique Key: validation code to match.'),
+		),
+		'expiration_time' => array(
+			'type' => 'int',
+			'description' => t('The expiration time of current seed.'),
+			'not null' => TRUE,
+			'default' => 0,
+		),
+	),
+	'primary key' => array('uid'),
+	'unique keys'  => array(
+		'seed' => array('seed'),
+		'validation_code' => array('validation_code'),
+	),
+	'indexes' => array(
+		'expiration_time' => array('expiration_time'),
+	),
+);
+
+// weixin_rules used with regexp
+$schema['weixin_rules'] = array(
+	'description' => t('Provides customized rules to response weixin request'),
+	'fields' => array(
+		'ruleid' => array(
+			'type' => 'int',
+			'not null' => TRUE,
+			'description' => t('Unique Key: the id of specific rule.'),
+		),
+		'rule' => array(
+			'type' => 'varchar',
+			'length' => '300',
+			'not null' => TRUE,
+			'description' => t('regexp rules to match.'),
+		),
+		'response' => array(
+			'type' => 'varchar',
+			'length' => '300',
+			'not null' => TRUE,
+			'description' => t('When corresponding rule be match, return relative response.'),
+		),
+		'weight' => array(
+			'type' => 'int',
+			'not null' => TRUE,
+			'default' => 0,
+			'description' => t('Index Key: weight of specific rule.'),
+		),
+	),
+	'primary key' => array('ruleid'),
+	'indexes'  => array(
+		'weight' => array('weight'),
+	),
+);
+  return $schema;
+}
+
+

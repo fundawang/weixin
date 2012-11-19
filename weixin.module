@@ -1,0 +1,106 @@
+<?php
+
+/*
+ * This file is licensed under GPLv2+.
+*/
+
+/**
+ * @file
+ * Provides features interacting with weixin public open platform.
+ */
+
+
+// Define weixin class
+// Constructor: $wee = new Wechat($token, $_GET, $wxid);
+class Wechat
+{
+	public $wxid = NULL;
+	public $username = NULL;
+	public $content = NULL;
+	
+	public function __construct() {
+		$args = func_get_args();
+		if($this->checkSignature($args[0], $args[1])) {
+			$this->wxid=$args[2];
+		}
+	}
+	private function checkSignature($token, $get) {
+		$signature = $get['signature'];
+		$timestamp = $get["timestamp"];
+		$nonce = $get["nonce"];
+		$tmpArr = array($token, $timestamp, $nonce);
+		sort($tmpArr);
+		$tmpStr = implode( $tmpArr );
+		$tmpStr = sha1( $tmpStr );
+		if( $tmpStr == $signature ) return TRUE;
+		else return FALSE;
+	}
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function weixin_help($path, $arg) {
+  switch ($path) {
+    case 'admin/config/services/weixin':
+    	$output = '<p>'.t('In this page, you could set various settings regarding weixin public platform.').'</p>';
+    	break;
+  }
+  return $output;
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function weixin_menu() {
+  $items['admin/config/services/weixin'] = array(
+    'title' => 'weixin rules',
+    'description' => 'weixin configuration and customized rules for response.',
+    'access arguments' => array('access administration pages'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('weixin_admin_form'),
+  );
+  $items['weixin'] = array(
+    'title' => 'weixin',
+    'description' => 'weixin interface',
+    'page callback' => 'weixin_response',
+    'access callback' => 'weixin_response_access',
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+function weixin_admin_form($form, $form_state) {
+  $form['weixinid'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Site global weixin id'),
+    '#description' => t('Messages sent to other weixinid will be ignored automatically.'),
+    '#default_value' => variable_get('weixinid', ''),
+    '#required' => TRUE,
+  );
+  $form['weixintoken'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Token'),
+    '#description' => t('The token set in weixin public platform.'),
+    '#default_value' => variable_get('weixintoken', ''),
+    '#required' => TRUE,
+  );
+	return system_settings_form($form);;
+}
+
+function weixin_admin_form_submit($form, $form_state) {
+	variable_set('weixinid',$form_state['values']['weixinid']);
+	variable_set('weixintoken',$form_state['values']['weixintoken']);
+}
+
+function weixin_response() {
+	$weechat = new Wechat(variable_get('weixintoken', ''), $_GET, variable_get('weixinid', ''));
+	// If wxid is not set, the the request is invalid.
+	if(!$weechat->wxid) exit;
+	// If $_GET["echostr"] is set, then echo it and exit.
+	if(isset($_GET['echostr'])) { echo $_GET['echostr']; exit; }
+}
+
+function weixin_response_access() {
+	return TRUE;
+}
