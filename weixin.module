@@ -45,11 +45,11 @@ class Wechat
 		unset($postObj);
 	}
 	
-	public function response($keyword) {
-		$textTpl = "<xml><ToUserName><![CDATA[%s]]></ToUserName><FromUserName><![CDATA[%s]]></FromUserName><CreateTime>%s</CreateTime><MsgType><![CDATA[%s]]></MsgType><Content><![CDATA[%s]]></Content><FuncFlag>1</FuncFlag></xml>";
+	public function response($keyword, $stared=FALSE) {
+		$textTpl = "<xml><ToUserName><![CDATA[%s]]></ToUserName><FromUserName><![CDATA[%s]]></FromUserName><CreateTime>%s</CreateTime><MsgType><![CDATA[%s]]></MsgType><Content><![CDATA[%s]]></Content><FuncFlag>%s</FuncFlag></xml>";
 		$msgType = "text";
 		$time=time();
-		$resultStr = sprintf($textTpl, $this->username, $this->wxid, $time, $msgType, $keyword);
+		$resultStr = sprintf($textTpl, $this->username, $this->wxid, $time, $msgType, $keyword, $stared?1:0);
 		return $resultStr;
 	}
 }
