@@ -326,3 +326,7 @@ function weixin_weixin($weechat, $user) {
 	}
 	if(isset($t)) return $t;
 }
+
+function weixin_cron() {
+	db_delete('weixin_validation')->condition('expiration_time',time(),'<')->execute();
+}
