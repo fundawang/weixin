@@ -106,7 +106,7 @@ function weixin_menu() {
 		'page arguments' => array('weixin_user_binding',1),
 		'type' => MENU_LOCAL_TASK,
 		'access callback' => 'user_access',
-		'access arguments'=> array('allow weixin binding'),
+		'access arguments'=> array('allow weixin binding', 1),
 	);
 	return $items;
 }
