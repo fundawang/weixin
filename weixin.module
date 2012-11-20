@@ -163,13 +163,13 @@ function weixin_response() {
 	$weechat->pharsePost(file_get_contents("php://input"));
 	if(!$weechat->username) exit;
 	
-	$user=array('uid'=>0);
-	$r=db_select('users_weixin','u')->condition('u.wx_openid',$weechat->username)->fields('u',array('uid'))->execute()->fetchObject();
+	$user=user_load(0);
+	$r=db_select('users_weixin','u')->condition('u.wx_openid',$weechat->username)->condition('u.status',1)->fields('u',array('uid'))->execute()->fetchObject();
 	if(isset($r->uid))
 		$user=user_load($r->uid);
 	$result=implode(module_invoke_all('weixin', $weechat, $user),'\n');
 	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
-	if(empty($result)) $result=t('Sorry, but I cannot understand what you are taking about.');
+	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').t('Sorry, but I cannot understand what you are taking about.');
 	echo $weechat->response($result);
 	
 	watchdog('weixin',
@@ -185,7 +185,7 @@ function weixin_response_access() {
 }
 
 function weixin_user_binding($form, $form_state, $user) {
-	$r=db_select('users_weixin','u')->fields('u')->condition('u.uid',$user->uid)->countQuery()->execute()->fetchField();
+	$r=db_select('users_weixin','u')->fields('u')->condition('u.uid',$user->uid)->condition('u.status',1)->countQuery()->execute()->fetchField();
 	$form=array();
 	$form['user']=array(
 		'#type' => 'hidden',
@@ -203,21 +203,27 @@ function weixin_user_binding($form, $form_state, $user) {
 			'#submit' => array('weixin_user_binding_unbound'),
 		);
 	} else {
-		$seed='';
-		$validationcode='';
-		$allowable_characters = 'ABCDEFHKLMNPQRSTUVWXYZ';
-		$len = strlen($allowable_characters) - 1;
-		for($i=0;$i<WEIXIN_SEED_LENGTH;$i++) {
-			$seed.=$allowable_characters[mt_rand(0, $len)];
-			$validationcode.=$allowable_characters[mt_rand(0, $len)];
+		$result=db_select('weixin_validation','w')->condition('uid',$user->uid)->fields('w',array('expiration_time'))->execute();
+		if($result->rowCount()==0 || $result->fetchField() < time() ) {
+			$seed='';
+			$validationcode='';
+			$allowable_characters = 'ABCDEFHKLMNPQRSTUVWXYZ';
+			$len = strlen($allowable_characters) - 1;
+			for($i=0;$i<WEIXIN_SEED_LENGTH;$i++) {
+				$seed.=$allowable_characters[mt_rand(0, $len)];
+				$validationcode.=$allowable_characters[mt_rand(0, $len)];
+			}
+			db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
+			db_insert('weixin_validation')->fields(array(
+				'uid' => $user->uid,
+				'seed' => $seed,
+				'validation_code' => $validationcode,
+				'expiration_time'=> time()+300,
+			))->execute();
 		}
-		db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
-		db_insert('weixin_validation')->fields(array(
-			'uid' => $user->uid,
-			'seed' => $seed,
-			'validation_code' => $validationcode,
-			'expiration_time'=> time()+300,
-		))->execute();
+		$r=db_select('weixin_validation','w')->condition('uid',$user->uid)->fields('w')->execute()->fetchObject();
+		$seed=$r->seed;
+		$validationcode=$r->validation_code;
 		$form['description']=array(
 			'#type' => 'markup',
 			'#markup' => '<p><img src="/'.drupal_get_path('module', 'weixin') . '/weixin_100.png" align="right" width="100" heigh="125" style="padding: 10px"/>'.t('You haven\'t bound your account with weixin id.').t('If you want to bind your account, please do as following.').'</p>',
@@ -233,12 +239,12 @@ function weixin_user_binding($form, $form_state, $user) {
 			'#disabled' => TRUE,
 			'#value' => $seed,
 			'#title' => '2. '.t('Send following code to <code>@code</code>' ,array('@code'=>variable_get('weixinname', ''))),
-			'#markup' => '<span>ddd',
-			'#description' => t('The code will expire in five minutes. If time passed, please refresh the page.'),
+			'#description' => t('The code will expire in five minutes. If time passed, please <a href="@url">refresh the page</a>.', array('@url'=>'/user/'.$user->uid.'/weixin')),
 			'#attributes'=>array('style'=>'font-size: 40px'),
 		);
 		$form['step3']=array(
 			'#type' => 'textfield',
+			'#required' => TRUE,
 			'#size' => 10,
 			'#title' => '3. '.t('Enter the validation code here'),
 			'#description' => t('Input the validation code you received in your weixin client.'),
@@ -251,6 +257,41 @@ function weixin_user_binding($form, $form_state, $user) {
 	}
 	
 	return $form;
+}
+
+function weixin_user_binding_validate($form, &$form_state) {
+	if(isset($form_state['values']['step3'])) {
+		$result=db_select('users_weixin','u')->condition('status',0)->condition('uid',$form_state['values']['user'])->fields('u')->execute();
+		if($result->rowCount()==0) {
+			form_set_error('step3', t('It seems that you have not send the message to our weixina public account.')); return;
+		}
+		$query=db_select('weixin_validation','w')->condition('seed',$form_state['values']['step2'])->fields('w');
+		$result=$query->execute();
+		switch($result->rowCount()) {
+			case 0:
+				$form_state['rebuild']=true; break;
+			case 1:
+				$r=$result->fetchObject();
+				if($r->validation_code != $form_state['values']['step3']) {
+					form_set_error('step3', t('The validation code you have entered is wrong.')); break;
+				}
+		}
+	}
+}
+
+function weixin_user_binding_submit($form, &$form_state) {
+	$user=user_load($form_state['values']['user']);
+	db_update('users_weixin')->condition('uid',$form_state['values']['user'])->condition('status',0)->fields(array(
+		'status'=>1,
+	))->execute();
+	db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
+	$r=db_select('users_weixin','u')->condition('uid',$user->uid)->fields('u',array('wx_openid'))->execute()->fetchField();
+	watchdog('weixin',
+		'@username bound his account with weixin id @wxid.',
+		array('@username'=>$user->name, '@wxid'=>$r),
+		WATCHDOG_INFO
+	);
+	drupal_set_message(t('Weixin acccount bound successfully.'));
 }
 
 function weixin_user_binding_unbound($form, $form_state) {
@@ -274,8 +315,9 @@ function weixin_weixin($weechat, $user) {
 				$t=t('The code you have entered has expired. Please fresh the page.');
 			else {
 				$t=t('Your validation code is @code, please input it at website.', array('@code' => $r->validation_code));
+				db_delete('users_weixin')->condition('uid',$r->uid)->execute();
 				db_insert('users_weixin')->fields(array(
-					'uid' => $user->uid,
+					'uid' => $r->uid,
 					'wx_openid' => $weechat->username,
 					'status' => 0,
 				))->execute();
