@@ -307,6 +307,10 @@ function weixin_user_binding_unbound($form, $form_state) {
 
 function weixin_weixin($weechat, $user) {
 	$content=trim($weechat->content);
+	// If welcome message should be displayed:
+	if(preg_match('/^Hello2BizUser$/', $content)) {
+		$t=t('Welcome to @sitename. You are talking with robot now.',array('@sitename'=>variable_get('site_name')));
+	}
 	// If sent given number of ucase chars, then validate it.
 	if(preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
 		$r=db_select('weixin_validation','w')->fields('w')->condition('seed',$content)->execute()->fetchObject();
