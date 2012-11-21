@@ -169,7 +169,7 @@ function weixin_response() {
 		$user=user_load($r->uid);
 	$result=implode(module_invoke_all('weixin', $weechat, $user),'\n');
 	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
-	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').t('Sorry, but I cannot understand what you are taking about.');
+	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').'/:--b'.t('Sorry, but I cannot understand what you are taking about.');
 	echo $weechat->response($result);
 	
 	watchdog('weixin',
