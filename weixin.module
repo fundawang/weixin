@@ -315,7 +315,7 @@ function weixin_weixin($weechat, $user) {
 	if(preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
 		// Lets check if the users have been registered with another account at first
 		$r=db_select('users_weixin','u')->condition('wx_openid',$weechat->username)->fields('u')->countQuery()->execute()->fetchField();
-		if($r>=0) {
+		if($r>0) {
 			$t=t('Sorry, you have already registered with another account at @sitename.', array('@sitename'=>variable_get('site_name')));
 		} else {
 			$r=db_select('weixin_validation','w')->fields('w')->condition('seed',$content)->execute()->fetchObject();
