@@ -313,18 +313,24 @@ function weixin_weixin($weechat, $user) {
 	}
 	// If sent given number of ucase chars, then validate it.
 	if(preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
-		$r=db_select('weixin_validation','w')->fields('w')->condition('seed',$content)->execute()->fetchObject();
-		if($r) {
-			if($r->expiration_time < time())
-				$t=t('The code you have entered has expired. Please fresh the page.');
-			else {
-				$t=t('Your validation code is @code, please input it at website.', array('@code' => $r->validation_code));
-				db_delete('users_weixin')->condition('uid',$r->uid)->execute();
-				db_insert('users_weixin')->fields(array(
-					'uid' => $r->uid,
-					'wx_openid' => $weechat->username,
-					'status' => 0,
-				))->execute();
+		// Lets check if the users have been registered with another account at first
+		$r=db_select('users_weixin','u')->condition('wx_openid',$weechat->username)->fields('u')->countQuery()->execute()->fetchField();
+		if($r>=0) {
+			$t=t('Sorry, you have already registered with another account at @sitename.', array('@sitename'=>variable_get('site_name')));
+		} else {
+			$r=db_select('weixin_validation','w')->fields('w')->condition('seed',$content)->execute()->fetchObject();
+			if($r) {
+				if($r->expiration_time < time())
+					$t=t('The code you have entered has expired. Please fresh the page.');
+				else {
+					$t=t('Your validation code is @code, please input it at website.', array('@code' => $r->validation_code));
+					db_delete('users_weixin')->condition('uid',$r->uid)->execute();
+					db_insert('users_weixin')->fields(array(
+						'uid' => $r->uid,
+						'wx_openid' => $weechat->username,
+						'status' => 0,
+					))->execute();
+				}
 			}
 		}
 	}
