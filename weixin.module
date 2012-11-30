@@ -105,10 +105,15 @@ function weixin_menu() {
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('weixin_user_binding',1),
 		'type' => MENU_LOCAL_TASK,
-		'access callback' => 'user_access',
-		'access arguments'=> array('allow weixin binding', 1),
+		'access callback' => 'weixin_user_access',
+		'access arguments' => array(1),
 	);
 	return $items;
+}
+
+function weixin_user_access($user) {
+	if($user->uid==$GLOBALS['user']->uid) return user_access('allow weixin binding');
+	else return user_access('allow weixin binding', $user) && user_access('administer users');
 }
 
 function weixin_admin_form($form, $form_state) {
