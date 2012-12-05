@@ -67,6 +67,8 @@ function weixin_help($path, $arg) {
 		case 'user/%/weixin':
 			$output = '<p>'.t('In this page, you could bind your account with a weixin id, or detach your account from existing weixin id.').'</p>';
 			break;
+		default:
+			return;
 	}
 	return $output;
 }
