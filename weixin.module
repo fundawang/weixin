@@ -123,7 +123,7 @@ function weixin_admin_form($form, $form_state) {
 		'#submit' => array('weixin_admin_form_submit'),
 	);
 	$form['weixinname'] = array(
-		'#type' => 'machine_name',
+		'#type' => 'textfield',
 		'#title' => t('Site global weixin account name'),
 		'#description' => t('Weixin account name to display in binding page.'),
 		'#default_value' => variable_get('weixinname', ''),
