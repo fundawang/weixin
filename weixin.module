@@ -358,3 +358,16 @@ function weixin_weixin($weechat, $user) {
 function weixin_cron() {
 	db_delete('weixin_validation')->condition('expiration_time',time(),'<')->execute();
 }
+
+/**
+ *  * Implementation of hook_uninstall().
+ *   */
+function weixin_uninstall() {
+	$settings=array(
+		'weixinname', 'weixinid', 'weixintoken'
+	);
+	foreach($settings as $s) {
+		variable_del($s);
+	}
+}
+
