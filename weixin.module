@@ -168,7 +168,7 @@ function weixin_response() {
 	$weechat = new Wechat($token, $_GET, $wxid);
 	// If wxid is not set, the the request is invalid.
 	if(!$weechat->wxid) {
-		return MENU_ACCESS_DENIED;
+		header($_SERVER['SERVER_PROTOCOL'] . ' 403 Forbidden');
 		exit;
 	}
 	// If connecting to public platform, then echo $_GET['echostr'] and exit.
