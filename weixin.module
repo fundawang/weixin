@@ -166,11 +166,6 @@ function weixin_response() {
 	$wxid=variable_get('weixinid', '');
 	$token=variable_get('weixintoken', '');
 	$weechat = new Wechat($token, $_GET, $wxid);
-	// If wxid is not set, the the request is invalid.
-	if(!$weechat->wxid) {
-		header($_SERVER['SERVER_PROTOCOL'] . ' 403 Forbidden');
-		exit;
-	}
 	// If connecting to public platform, then echo $_GET['echostr'] and exit.
 	if($_SERVER['REQUEST_METHOD']=='GET') {
 		watchdog('weixin',
@@ -204,7 +199,12 @@ function weixin_response() {
 }
 
 function weixin_response_access() {
-	return TRUE;
+	$wxid=variable_get('weixinid', '');
+	$token=variable_get('weixintoken', '');
+	$weechat = new Wechat($token, $_GET, $wxid);
+	// If wxid is not set, the the request is invalid.
+	if(!$weechat->wxid) return FALSE:
+	else return TRUE;
 }
 
 function weixin_user_binding($form, $form_state, $user) {
