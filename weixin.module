@@ -173,6 +173,7 @@ function weixin_response() {
 			array('@wxid' => $wxid, '@token' => $token),
 			WATCHDOG_INFO
 		);
+		drupal_add_http_header('Content-Type', 'text/plain; charset=utf-8');
 		echo $_GET['echostr'];
 		exit;
 	}
