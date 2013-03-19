@@ -17,6 +17,7 @@ class Wechat
 {
 	public $wxid = NULL;
 	public $username = NULL;
+	public $msgtype = NULL;
 	public $content = NULL;
 	
 	public function __construct() {
@@ -41,7 +42,9 @@ class Wechat
 		$postObj = simplexml_load_string($post, 'SimpleXMLElement', LIBXML_NOCDATA);
 		if($postObj!= FALSE && $this->wxid == $postObj->ToUserName) {
 			$this->username = $postObj->FromUserName;
-			$this->content = trim($postObj->Content);
+			$this->msgtype = $postObj->MsgType;
+			if(isset($postObj->Content)) $this->content = trim($postObj->Content);
+			else if(isset($postObj->Event)) $this->content = $postObj->Event;
 		}
 		unset($postObj);
 	}
@@ -330,11 +333,20 @@ function weixin_user_binding_unbound($form, $form_state) {
 }
 
 function weixin_weixin($weechat, $user) {
-	$content=trim($weechat->content);
 	// If welcome message should be displayed:
-	if(preg_match('/^Hello2BizUser$/', $content)) {
+	if($weechat->msgtype=='event' && $weechat->content=='subscribe') {
 		$t=t('Welcome to @sitename. You are talking with robot now.',array('@sitename'=>variable_get('site_name')));
 	}
+	// If user unsubscribe the account, then we should remove related records.
+	if($weechat->msgtype=='event' && $weechat->content=='unsubscribe') {
+		db_delete('users_weixin')->condition('wx_openid',$weechat->username)->execute();
+		watchdog('weixin',
+			'User unsubscribed the account.',
+			array(),
+			WATCHDOG_DEBUG
+		); 
+	}
+	$content=trim($weechat->content);
 	// If sent given number of ucase chars, then validate it.
 	if(preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
 		$r=db_select('weixin_validation','w')->fields('w')->condition('seed',$content)->execute()->fetchObject();
