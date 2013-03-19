@@ -348,7 +348,7 @@ function weixin_weixin($weechat, $user) {
 	}
 	$content=trim($weechat->content);
 	// If sent given number of ucase chars, then validate it.
-	if(preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
+	if($weechat->msgtype=='text' && preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
 		$r=db_select('weixin_validation','w')->fields('w')->condition('seed',$content)->execute()->fetchObject();
 		if($r) {
 			// Lets check if the users have been registered with another account at first
