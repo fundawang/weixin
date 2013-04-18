@@ -16,6 +16,7 @@ define("WEIXIN_SEED_LENGTH",8);
 class Wechat
 {
 	public $wxid = NULL;
+	public $msgid = NULL;
 	public $username = NULL;
 	public $msgtype = NULL;
 	public $content = NULL;
@@ -42,19 +43,95 @@ class Wechat
 		$postObj = simplexml_load_string($post, 'SimpleXMLElement', LIBXML_NOCDATA);
 		if($postObj!= FALSE && $this->wxid == $postObj->ToUserName) {
 			$this->username = $postObj->FromUserName;
+			$this->msgid = $postObj->MsgId;
 			$this->msgtype = $postObj->MsgType;
 			if(isset($postObj->Content)) $this->content = trim($postObj->Content);
 			else if(isset($postObj->Event)) $this->content = $postObj->Event;
 		}
 		unset($postObj);
 	}
+}
+
+class WechatResponse
+{
+	private $wxid = NULL;
+	private $username = NULL;
+	private $requestid = NULL;
+	private $type = NULL;
+	private $content = NULL;
+	private $music = array();
+	private $news = array();
+	private $stared = 0;
 	
-	public function response($keyword, $stared=FALSE) {
-		$textTpl = "<xml><ToUserName><![CDATA[%s]]></ToUserName><FromUserName><![CDATA[%s]]></FromUserName><CreateTime>%s</CreateTime><MsgType><![CDATA[%s]]></MsgType><Content><![CDATA[%s]]></Content><FuncFlag>%s</FuncFlag></xml>";
-		$msgType = "text";
-		$time=time();
-		$resultStr = sprintf($textTpl, $this->username, $this->wxid, $time, $msgType, $keyword, $stared?1:0);
-		return $resultStr;
+	public function __construct($request) {
+		if(is_object($request) && get_class($request) == 'Wechat') {
+			$this->wxid = $request->wxid;
+			$this->username = $request->username;
+			$this->requestid = $request->msgid;
+		}
+	}
+
+	public function star($isstared=1) {
+		$this->stared = $isstared;
+	}
+
+	public function text($content) {
+		$this->type = 'text';
+		$this->content = $content;
+	}
+
+	public function music($title, $description, $url, $hqurl=NULL) {
+		if(empty($hqurl)) $hqurl=$url;
+		$this->type = 'music';
+		$this->music = array(
+			'title' => $title,
+			'description' => $description,
+			'url' => $url,
+			'hqurl' => $hqurl,
+		);
+	}
+
+	public function news($items) {
+		$this->type = 'news';
+		foreach($items as $item) {
+			$this->news[]=array(
+				'title'=>$item['title'],
+				'description'=>$item['description'],
+				'pic'=>$item['pic'],
+				'url'=>$item['url'],
+			);
+		}
+	}
+
+	public function __toString() {
+		$output = '';
+		switch($this->type) {
+			case 'text':
+				$textTpl = "<xml><ToUserName><![CDATA[%s]]></ToUserName><FromUserName><![CDATA[%s]]></FromUserName><CreateTime>%s</CreateTime><MsgType><![CDATA[%s]]></MsgType><Content><![CDATA[%s]]></Content><FuncFlag>%s</FuncFlag></xml>";
+				$output = sprintf($textTpl, $this->username, $this->wxid, time(), 'text', $this->content, $this->stared?1:0);
+				break;
+			case 'music':
+				$textTpl = "<xml><ToUserName><![CDATA[%s]]></ToUserName><FromUserName><![CDATA[%s]]></FromUserName><CreateTime>%s</CreateTime><MsgType><![CDATA[%s]]></MsgType><Music><Title><![CDATA[%s]]></Title><Description><![CDATA[%s]]></Description><MusicUrl><![CDATA[%s]]></MusicUrl><HQMusicUrl><![CDATA[%s]]></HQMusicUrl></Music><FuncFlag>%s</FuncFlag></xml>";
+				$output = sprintf($textTpl, $this->username, $this->wxid, time(), 'music',
+					$this->music['title'], $this->music['description'], $this->music['url'], $this->music['hqurls'], $this->stared?1:0);
+				break;
+			case 'news':
+				if(count($this->news)<=0) break;
+				$news='<Articles>';
+				foreach($this->news as $item) {
+					$news .= sprintf("<item><Title><![CDATA[%s]]></Title><Description><![CDATA[%s]]></Description><PicUrl><![CDATA[%s]]></PicUrl><Url><![CDATA[%s]]></Url></item>",
+						$item['title'], $item['description'], $item['pic'], $item['url']
+					);
+				}
+				$news.='</Articles>';
+				$textTpl = "<xml><ToUserName><![CDATA[%s]]></ToUserName><FromUserName><![CDATA[%s]]></FromUserName><CreateTime>%s</CreateTime><MsgType><![CDATA[%s]]></MsgType><ArticleCount>%s</ArticleCount>%s<FuncFlag>1</FuncFlag></xml>";
+				$output = sprintf($textTpl, $this->username, $this->wxid, time(), 'news',
+					count($this->news),	$news, $this->stared?1:0
+				);
+				break;
+		}
+		if(!empty($output)) return $output;
+		else return '';
 	}
 }
 
@@ -192,7 +269,10 @@ function weixin_response() {
 	$result=implode(module_invoke_all('weixin', $weechat, $user),'\n');
 	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
 	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').'/:--b'.t('Sorry, but I cannot understand what you are taking about.');
-	echo $weechat->response($result);
+
+	$resp=new WechatResponse($weechat);
+	$resp->text($result);
+	echo $resp;
 	
 	watchdog('weixin',
 		'Recieved @content and returned @response',
@@ -207,7 +287,7 @@ function weixin_response_access() {
 	$token=variable_get('weixintoken', '');
 	$weechat = new Wechat($token, $_GET, $wxid);
 	// If wxid is not set, the the request is invalid.
-	if(!$weechat->wxid) return FALSE:
+	if(!$weechat->wxid) return FALSE;
 	else return TRUE;
 }
 
