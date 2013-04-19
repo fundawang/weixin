@@ -86,8 +86,8 @@ class WechatResponse
 		$this->music = array(
 			'title' => $title,
 			'description' => $description,
-			'url' => $url,
-			'hqurl' => $hqurl,
+			'url' => url($url, array('absolute'=>TRUE)),
+			'hqurl' => url($hqurl, array('absolute'=>TRUE))
 		);
 	}
 
@@ -98,7 +98,7 @@ class WechatResponse
 				'title'=>$item['title'],
 				'description'=>$item['description'],
 				'pic'=>$item['pic'],
-				'url'=>$item['url'],
+				'url'=>url($item['url'], array('absolute'=>TRUE))
 			);
 		}
 	}
