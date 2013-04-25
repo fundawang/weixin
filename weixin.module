@@ -45,8 +45,26 @@ class Wechat
 			$this->username = $postObj->FromUserName;
 			$this->msgid = $postObj->MsgId;
 			$this->msgtype = $postObj->MsgType;
-			if(isset($postObj->Content)) $this->content = trim($postObj->Content);
-			else if(isset($postObj->Event)) $this->content = $postObj->Event;
+			switch($postObj->MsgType) {
+				case 'text':
+					$this->content = trim($postObj->Content);
+					break;
+				case 'event':
+					$this->content = $postObj->Event;
+					break;
+				case 'image':
+					$this->content = $postObj->PicUrl;
+					break;
+				case 'location':
+					$this->content = array(
+						'longitude' => $postObj->Location_Y,
+						'latitude' => $postObj->Location_X,
+					);
+					break;
+				case 'link':
+					$this->content = $postObj->Url;
+					break;
+			}
 		}
 		unset($postObj);
 	}
