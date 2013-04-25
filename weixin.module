@@ -50,7 +50,12 @@ class Wechat
 					$this->content = trim($postObj->Content);
 					break;
 				case 'event':
-					$this->content = $postObj->Event;
+					if(in_array($postObj->Event, arary('subscribe', 'unsubscribe')))
+						$this->content = $postObj->Event;
+					else
+						$this->content = array(
+							$postObj->Event => $postObj->EventKey,
+						);
 					break;
 				case 'image':
 					$this->content = $postObj->PicUrl;
