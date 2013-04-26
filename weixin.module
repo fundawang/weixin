@@ -120,7 +120,7 @@ class WechatResponse
 			$this->news[]=array(
 				'title'=>$item['title'],
 				'description'=>$item['description'],
-				'pic'=>$item['pic'],
+				'picurl'=>url($item['picurl'], array('absolute'=>TRUE)),
 				'url'=>url($item['url'], array('absolute'=>TRUE))
 			);
 		}
@@ -143,7 +143,7 @@ class WechatResponse
 				$news='<Articles>';
 				foreach($this->news as $item) {
 					$news .= sprintf("<item><Title><![CDATA[%s]]></Title><Description><![CDATA[%s]]></Description><PicUrl><![CDATA[%s]]></PicUrl><Url><![CDATA[%s]]></Url></item>",
-						$item['title'], $item['description'], $item['pic'], $item['url']
+						$item['title'], $item['description'], $item['picurl'], $item['url']
 					);
 				}
 				$news.='</Articles>';
