@@ -149,7 +149,7 @@ class WechatResponse
 				$news.='</Articles>';
 				$textTpl = "<xml><ToUserName><![CDATA[%s]]></ToUserName><FromUserName><![CDATA[%s]]></FromUserName><CreateTime>%s</CreateTime><MsgType><![CDATA[%s]]></MsgType><ArticleCount>%s</ArticleCount>%s<FuncFlag>1</FuncFlag></xml>";
 				$output = sprintf($textTpl, $this->username, $this->wxid, time(), 'news',
-					count($this->news),	$news, $this->stared?1:0
+					count($this->news), $news, $this->stared?1:0
 				);
 				break;
 		}
