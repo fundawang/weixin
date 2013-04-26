@@ -21,10 +21,9 @@ class Wechat
 	public $msgtype = NULL;
 	public $content = NULL;
 	
-	public function __construct() {
-		$args = func_get_args();
-		if($this->checkSignature($args[0], $args[1])) {
-			$this->wxid=$args[2];
+	public function __construct($token, $args, $wxid) {
+		if($this->checkSignature($token, $args)) {
+			$this->wxid=$wxid;
 		}
 	}
 	private function checkSignature($token, $get) {
@@ -299,7 +298,7 @@ function weixin_response() {
 	
 	watchdog('weixin',
 		'Recieved @content and returned @response',
-		array('@content'=>($weechat->content), '@response'=>$result),
+		array('@content'=>($weechat->msgid), '@response'=>$result),
 		WATCHDOG_DEBUG
 	); 
 	exit; 
