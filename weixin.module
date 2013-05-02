@@ -323,7 +323,7 @@ function weixin_user_binding($form, $form_state, $user) {
 	if($r) { // this user has already bound with weixin account
 		$form['description']=array(
 			'#type' => 'markup',
-			'#markup' => '<p>'.'<img src="/'.drupal_get_path('module', 'weixin') . '/weixin_100.png" align="left" width="100" heigh="125" style="padding: 10px"/>'.t('It seems that you have already bound your account with weixin id.').t('If you want to detach your account, please click following button.').'</p>',
+			'#markup' => '<p>'.'<img src="'.url(drupal_get_path('module', 'weixin').'/weixin_100.png').'" align="left" width="100" heigh="125" style="padding: 10px"/>'.t('It seems that you have already bound your account with weixin id.').t('If you want to detach your account, please click following button.').'</p>',
 		);
 		$form['submit'] = array(
 			'#type' => 'submit',
@@ -354,12 +354,12 @@ function weixin_user_binding($form, $form_state, $user) {
 		$validationcode=$r->validation_code;
 		$form['description']=array(
 			'#type' => 'markup',
-			'#markup' => '<p><img src="/'.drupal_get_path('module', 'weixin') . '/weixin_100.png" align="right" width="100" heigh="125" style="padding: 10px"/>'.t('You haven\'t bound your account with weixin id.').t('If you want to bind your account, please do as following.').'</p>',
+			'#markup' => '<p><img src="'.url(drupal_get_path('module', 'weixin').'/weixin_100.png').'" align="right" width="100" heigh="125" style="padding: 10px"/>'.t('You haven\'t bound your account with weixin id.').t('If you want to bind your account, please do as following.').'</p>',
 		);
 		$form['step1']=array(
 			'#type' => 'item',
 			'#title' => '1. '.t('Follow <code>@code</code> in your weixin client',array('@code'=>variable_get('weixinname', ''))),
-			'#description' => '<div><img src="/'.drupal_get_path('module', 'weixin').'/qrcode.jpg" valign="top"/>'.t('Scan this qrcode or search <code>@code</code> in your weixin client.', array('@code'=>variable_get('weixinname', ''))).'</div>',
+			'#description' => '<div><img src="'.url(drupal_get_path('module', 'weixin').'/qrcode.jpg').'" valign="top"/>'.t('Scan this qrcode or search <code>@code</code> in your weixin client.', array('@code'=>variable_get('weixinname', ''))).'</div>',
 		);
 		$form['step2']=array(
 			'#type' => 'textfield',
@@ -367,7 +367,7 @@ function weixin_user_binding($form, $form_state, $user) {
 			'#disabled' => TRUE,
 			'#value' => $seed,
 			'#title' => '2. '.t('Send following code to <code>@code</code>' ,array('@code'=>variable_get('weixinname', ''))),
-			'#description' => t('The code will expire in five minutes. If time passed, please <a href="@url">refresh the page</a>.', array('@url'=>'/user/'.$user->uid.'/weixin')),
+			'#description' => t('The code will expire in five minutes. If time passed, please <a href="@url">refresh the page</a>.', array('@url'=>url('user/'.$user->uid.'/weixin'))),
 			'#attributes'=>array('style'=>'font-size: 40px'),
 		);
 		$form['step3']=array(
