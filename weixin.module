@@ -11,9 +11,9 @@
 
 define("WEIXIN_SEED_LENGTH",8);
 
-// Define weixin class
-// Constructor: $wee = new Wechat($token, $_GET, $wxid);
-class Wechat
+// Define weixin classes
+// Constructor: $wee = new WechatRequest($token, $_GET, $wxid);
+class WechatRequest
 {
 	public $wxid = NULL;
 	public $msgid = NULL;
@@ -86,7 +86,7 @@ class WechatResponse
 	private $stared = 0;
 	
 	public function __construct($request) {
-		if(is_object($request) && get_class($request) == 'Wechat') {
+		if(is_object($request) && get_class($request) == 'WechatRequest') {
 			$this->wxid = $request->wxid;
 			$this->username = $request->username;
 			$this->requestid = $request->msgid;
@@ -267,7 +267,7 @@ function weixin_admin_form_submit($form, $form_state) {
 function weixin_response() {
 	$wxid=variable_get('weixinid', '');
 	$token=variable_get('weixintoken', '');
-	$weechat = new Wechat($token, $_GET, $wxid);
+	$request = new WechatRequest($token, $_GET, $wxid);
 	// If connecting to public platform, then echo $_GET['echostr'] and exit.
 	if($_SERVER['REQUEST_METHOD']=='GET') {
 		watchdog('weixin',
@@ -281,24 +281,24 @@ function weixin_response() {
 	}
 	
 	// Fill up relative structure
-	$weechat->pharsePost(file_get_contents("php://input"));
-	if(!$weechat->username) exit;
+	$request->pharsePost(file_get_contents("php://input"));
+	if(!$request->username) exit;
 	
 	$user=user_load(0);
-	$r=db_select('users_weixin','u')->condition('u.wx_openid',$weechat->username)->condition('u.status',1)->fields('u',array('uid'))->execute()->fetchObject();
+	$r=db_select('users_weixin','u')->condition('u.wx_openid',$request->username)->condition('u.status',1)->fields('u',array('uid'))->execute()->fetchObject();
 	if(isset($r->uid))
 		$user=user_load($r->uid);
-	$result=implode(module_invoke_all('weixin', $weechat, $user),'\n');
+	$result=implode(module_invoke_all('weixin', $request, $user),'\n');
 	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
 	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').'/:--b'.t('Sorry, but I cannot understand what you are taking about.');
 
-	$resp=new WechatResponse($weechat);
+	$resp=new WechatResponse($request);
 	$resp->text($result);
 	echo $resp;
 	
 	watchdog('weixin',
 		'Recieved @content and returned @response',
-		array('@content'=>($weechat->msgid), '@response'=>$result),
+		array('@content'=>($request->msgid), '@response'=>$result),
 		WATCHDOG_DEBUG
 	); 
 	exit; 
@@ -307,10 +307,9 @@ function weixin_response() {
 function weixin_response_access() {
 	$wxid=variable_get('weixinid', '');
 	$token=variable_get('weixintoken', '');
-	$weechat = new Wechat($token, $_GET, $wxid);
+	$req = new WechatRequest($token, $_GET, $wxid);
 	// If wxid is not set, the the request is invalid.
-	if(!$weechat->wxid) return FALSE;
-	else return TRUE;
+	return !empty($req->wxid);
 }
 
 function weixin_user_binding($form, $form_state, $user) {
@@ -434,27 +433,27 @@ function weixin_user_binding_unbound($form, $form_state) {
 	drupal_set_message(t('Weixin acccount detached.'));
 }
 
-function weixin_weixin($weechat, $user) {
+function weixin_weixin($request, $user) {
 	// If welcome message should be displayed:
-	if($weechat->msgtype=='event' && $weechat->content=='subscribe') {
+	if($request->msgtype=='event' && $request->content=='subscribe') {
 		$t=t('Welcome to @sitename. You are talking with robot now.',array('@sitename'=>variable_get('site_name')));
 	}
 	// If user unsubscribe the account, then we should remove related records.
-	if($weechat->msgtype=='event' && $weechat->content=='unsubscribe') {
-		db_delete('users_weixin')->condition('wx_openid',$weechat->username)->execute();
+	if($request->msgtype=='event' && $request->content=='unsubscribe') {
+		db_delete('users_weixin')->condition('wx_openid',$request->username)->execute();
 		watchdog('weixin',
 			'User unsubscribed the account.',
 			array(),
 			WATCHDOG_DEBUG
 		); 
 	}
-	$content=trim($weechat->content);
+	$content=trim($request->content);
 	// If sent given number of ucase chars, then validate it.
-	if($weechat->msgtype=='text' && preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
+	if($request->msgtype=='text' && preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
 		$r=db_select('weixin_validation','w')->fields('w')->condition('seed',$content)->execute()->fetchObject();
 		if($r) {
 			// Lets check if the users have been registered with another account at first
-			$c=db_select('users_weixin','u')->condition('wx_openid',$weechat->username)->fields('u')->countQuery()->execute()->fetchField();
+			$c=db_select('users_weixin','u')->condition('wx_openid',$request->username)->fields('u')->countQuery()->execute()->fetchField();
 			if($c>0)
 				$t=t('Sorry, you have already registered with another account at @sitename.', array('@sitename'=>variable_get('site_name')));
 			else if($r->expiration_time < time())
@@ -464,7 +463,7 @@ function weixin_weixin($weechat, $user) {
 				db_delete('users_weixin')->condition('uid',$r->uid)->execute();
 				db_insert('users_weixin')->fields(array(
 					'uid' => $r->uid,
-					'wx_openid' => $weechat->username,
+					'wx_openid' => $request->username,
 					'status' => 0,
 				))->execute();
 			}
