@@ -472,6 +472,10 @@ function weixin_weixin($request, $user) {
 	if(isset($t)) return $t;
 }
 
+function weixin_is_wechat_browser() {
+	return preg_match('/ MicroMessenger\//', $_SERVER['HTTP_USER_AGENT']);
+}
+
 function weixin_cron() {
 	db_delete('weixin_validation')->condition('expiration_time',time(),'<')->execute();
 }
