@@ -335,7 +335,7 @@ function weixin_user_binding($form, $form_state, $user) {
 		if($result->rowCount()==0 || $result->fetchField() < time() ) {
 			$seed='';
 			$validationcode='';
-			$allowable_characters = '0123456789';
+			$allowable_characters = 'ABCEFHIKLMNPQRSTUVWXYZ';
 			$len = strlen($allowable_characters) - 1;
 			for($i=0;$i<WEIXIN_SEED_LENGTH;$i++) {
 				$seed.=$allowable_characters[mt_rand(0, $len)];
@@ -443,8 +443,8 @@ function weixin_weixin($request, $user) {
 	if($request->msgtype=='event' && $request->content=='unsubscribe') {
 		db_delete('users_weixin')->condition('wx_openid',$request->username)->execute();
 		watchdog('weixin',
-			'User unsubscribed the account.',
-			array(),
+			'User @username unsubscribed the account.',
+			array('@username'=>$user->name),
 			WATCHDOG_DEBUG
 		); 
 	}
@@ -470,6 +470,17 @@ function weixin_weixin($request, $user) {
 			}
 		}
 	}
+	// If user want to unbound the weixin account, then do it.
+	if($request->msgtype=='text' && preg_match('/'.t('Unbound').'/',$content)) {
+		db_delete('users_weixin')->condition('uid',$user->uid)->execute();
+		$t=t('@username has been unbound with your weixin account.', array('@username'=>$user->name));
+		watchdog('weixin',
+			'@username unbound his account with weixin.',
+			array('@username'=>$user->name),
+			WATCHDOG_DEBUG
+		); 
+	}
+
 	if(isset($t)) return $t;
 }
 
