@@ -31,7 +31,7 @@ class WechatRequest
 		$timestamp = $get["timestamp"];
 		$nonce = $get["nonce"];
 		$tmpArr = array($token, $timestamp, $nonce);
-		natsort($tmpArr);
+		asort($tmpArr);
 		$tmpStr = implode( $tmpArr );
 		$tmpStr = sha1( $tmpStr );
 		if( $tmpStr == $signature ) return TRUE;
@@ -41,32 +41,32 @@ class WechatRequest
 	public function pharsePost($post) {
 		$postObj = simplexml_load_string($post, 'SimpleXMLElement', LIBXML_NOCDATA);
 		if($postObj!= FALSE && $this->wxid == $postObj->ToUserName) {
-			$this->username = $postObj->FromUserName;
-			$this->msgid = $postObj->MsgId;
-			$this->msgtype = $postObj->MsgType;
-			switch($postObj->MsgType) {
+			$this->username = (string)$postObj->FromUserName;
+			$this->msgid = (string)$postObj->MsgId;
+			$this->msgtype = (string)$postObj->MsgType;
+			switch($this->msgtype) {
 				case 'text':
-					$this->content = trim($postObj->Content);
+					$this->content = trim((string)$postObj->Content);
 					break;
 				case 'event':
-					if(in_array($postObj->Event, arary('subscribe', 'unsubscribe')))
-						$this->content = $postObj->Event;
+					if(in_array((string)$postObj->Event, arary('subscribe', 'unsubscribe')))
+						$this->content = (string)$postObj->Event;
 					else
 						$this->content = array(
-							$postObj->Event => $postObj->EventKey,
+							(string)$postObj->Event => (string)$postObj->EventKey,
 						);
 					break;
 				case 'image':
-					$this->content = $postObj->PicUrl;
+					$this->content = (string)$postObj->PicUrl;
 					break;
 				case 'location':
 					$this->content = array(
-						'longitude' => $postObj->Location_Y,
-						'latitude' => $postObj->Location_X,
+						'longitude' => (string)$postObj->Location_Y,
+						'latitude' => (string)$postObj->Location_X,
 					);
 					break;
 				case 'link':
-					$this->content = $postObj->Url;
+					$this->content = (string)$postObj->Url;
 					break;
 			}
 		}
@@ -294,14 +294,14 @@ function weixin_response() {
 
 	$resp=new WechatResponse($request);
 	$resp->text($result);
-	echo $resp;
 	
 	watchdog('weixin',
-		'Recieved @content and returned @response',
+		'Recieved @content and returned @response.',
 		array('@content'=>($request->msgid), '@response'=>$result),
 		WATCHDOG_DEBUG
-	); 
-	exit; 
+	);
+	echo $resp;
+	exit;
 }
 
 function weixin_response_access() {
