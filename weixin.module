@@ -135,7 +135,7 @@ class WechatResponse
 			case 'music':
 				$textTpl = "<xml><ToUserName><![CDATA[%s]]></ToUserName><FromUserName><![CDATA[%s]]></FromUserName><CreateTime>%s</CreateTime><MsgType><![CDATA[%s]]></MsgType><Music><Title><![CDATA[%s]]></Title><Description><![CDATA[%s]]></Description><MusicUrl><![CDATA[%s]]></MusicUrl><HQMusicUrl><![CDATA[%s]]></HQMusicUrl></Music><FuncFlag>%s</FuncFlag></xml>";
 				$output = sprintf($textTpl, $this->username, $this->wxid, time(), 'music',
-					$this->music['title'], $this->music['description'], $this->music['url'], $this->music['hqurls'], $this->stared?1:0);
+					$this->music['title'], $this->music['description'], $this->music['url'], $this->music['hqurl'], $this->stared?1:0);
 				break;
 			case 'news':
 				if(count($this->news)<=0) break;
