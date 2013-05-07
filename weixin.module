@@ -116,9 +116,10 @@ class WechatResponse
 	public function news($items) {
 		$this->type = 'news';
 		foreach($items as $item) {
+			if(empty($item['title'])) continue;
 			$this->news[]=array(
 				'title'=>$item['title'],
-				'description'=>$item['description'],
+				'description'=>empty($item['description'])?'':$item['description'],
 				'picurl'=>url($item['picurl'], array('absolute'=>TRUE)),
 				'url'=>url($item['url'], array('absolute'=>TRUE))
 			);
