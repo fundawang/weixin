@@ -49,7 +49,7 @@ class WechatRequest
 					$this->content = trim((string)$postObj->Content);
 					break;
 				case 'event':
-					if(in_array((string)$postObj->Event, arary('subscribe', 'unsubscribe')))
+					if(in_array((string)$postObj->Event, array('subscribe', 'unsubscribe')))
 						$this->content = (string)$postObj->Event;
 					else
 						$this->content = array(
