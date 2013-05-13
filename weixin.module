@@ -170,6 +170,12 @@ function weixin_help($path, $arg) {
 		case 'user/%/weixin':
 			$output = '<p>'.t('In this page, you could bind your account with a weixin id, or detach your account from existing weixin id.').'</p>';
 			break;
+		case 'weixin':
+			if(isset($arg) && $arg=='weixin') {
+				$output = t('Welcome to @sitename. You are talking with robot now.',array('@sitename'=>variable_get('site_name')));
+				$output .= t('You may send following instructions to interact with the robot.');
+			}
+			break;
 		default:
 			return;
 	}
@@ -450,6 +456,11 @@ function weixin_weixin($request, $user) {
 		); 
 	}
 	$content=trim($request->content);
+	if($request->msgtype=='text' && in_array($content, array('?', "？", t('Help')))) {
+		$t=weixin_help('weixin','weixin');
+		$t.="\n\n";
+		$t.=implode(array_filter(module_invoke_all('help','weixin',NULL)),"\n\n");
+	}
 	// If sent given number of ucase chars, then validate it.
 	if($request->msgtype=='text' && preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
 		$r=db_select('weixin_validation','w')->fields('w')->condition('seed',$content)->execute()->fetchObject();
