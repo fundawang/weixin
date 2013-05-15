@@ -340,14 +340,18 @@ function weixin_user_binding($form, $form_state, $user) {
 	} else {
 		$result=db_select('weixin_validation','w')->condition('uid',$user->uid)->fields('w',array('expiration_time'))->execute();
 		if($result->rowCount()==0 || $result->fetchField() < time() ) {
-			$seed='';
-			$validationcode='';
 			$allowable_characters = 'ABCEFHIKLMNPQRSTUVWXYZ';
-			$len = strlen($allowable_characters) - 1;
-			for($i=0;$i<WEIXIN_SEED_LENGTH;$i++) {
-				$seed.=$allowable_characters[mt_rand(0, $len)];
-				$validationcode.=$allowable_characters[mt_rand(0, $len)];
-			}
+			do {
+				$seed='';
+				$validationcode='';
+				$len = strlen($allowable_characters) - 1;
+				for($i=0;$i<WEIXIN_SEED_LENGTH;$i++) {
+					$seed.=$allowable_characters[mt_rand(0, $len)];
+					$validationcode.=$allowable_characters[mt_rand(0, $len)];
+				}
+				$db_or=db_or()->condition('seed',$seed)->condition('validation_code',$validationcode);
+				$r=db_select('weixin_validation','w')->fields('w')->condition($db_or)->execute();
+			} while ($r->rowCount()>0);
 			db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
 			db_insert('weixin_validation')->fields(array(
 				'uid' => $user->uid,
@@ -484,13 +488,17 @@ function weixin_weixin($request, $user) {
 	}
 	// If user want to unbound the weixin account, then do it.
 	if($request->msgtype=='text' && preg_match('/'.t('Unbound').'/',$content)) {
-		db_delete('users_weixin')->condition('uid',$user->uid)->execute();
-		$t=t('@username has been unbound with your weixin account.', array('@username'=>$user->name));
-		watchdog('weixin',
-			'@username unbound his account with weixin.',
-			array('@username'=>$user->name),
-			WATCHDOG_DEBUG
-		); 
+		$r=db_delete('users_weixin')->condition('uid',$user->uid)->execute();
+		if($r) {
+			$t=t('@username has been unbound with your weixin account.', array('@username'=>$user->name));
+			watchdog('weixin',
+				'@username unbound his account with weixin.',
+				array('@username'=>$user->name),
+				WATCHDOG_DEBUG
+			); 
+		} else {
+			$t=t('You haven\'t bound your weixin account yet.');
+		}
 	}
 
 	if(isset($t)) return $t;
