@@ -326,8 +326,10 @@ function weixin_response() {
 	// Fill up relative structure
 	$request->pharsePost(file_get_contents("php://input"));
 	if(!$request->username) exit;
-	$r=db_select('weixin_log','l')->condition('l.refid',$request->msgid)->fields('l')->execute();
-	if($r->rowCount()) exit;
+	if($request->msgid) {
+		$r=db_select('weixin_log','l')->condition('l.refid',$request->msgid)->condition('l.direction',WEIXIN_DIRECTION_INCOME)->fields('l')->execute();
+		if($r->rowCount()) exit;
+	}
 	
 	$user=user_load(0);
 	$r=db_select('users_weixin','u')->condition('u.wx_openid',$request->username)->condition('u.status',1)->fields('u',array('uid'))->execute()->fetchObject();
