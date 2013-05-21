@@ -10,6 +10,9 @@
  */
 
 define("WEIXIN_SEED_LENGTH",8);
+define("WEIXIN_DIRECTION_INCOME",1);
+define("WEIXIN_DIRECTION_OUTCOME",2);
+
 
 // Define weixin classes
 // Constructor: $wee = new WechatRequest($token, $_GET, $wxid);
@@ -20,6 +23,7 @@ class WechatRequest
 	public $username = NULL;
 	public $msgtype = NULL;
 	public $content = NULL;
+	public $rawinput = NULL;
 	
 	public function __construct($token, $args, $wxid) {
 		if($this->checkSignature($token, $args)) {
@@ -41,6 +45,7 @@ class WechatRequest
 	public function pharsePost($post) {
 		$postObj = simplexml_load_string($post, 'SimpleXMLElement', LIBXML_NOCDATA);
 		if($postObj!= FALSE && $this->wxid == $postObj->ToUserName) {
+			$this->rawinput = (string)$post;
 			$this->username = (string)$postObj->FromUserName;
 			$this->msgid = (string)$postObj->MsgId;
 			$this->msgtype = (string)$postObj->MsgType;
@@ -77,8 +82,8 @@ class WechatRequest
 class WechatResponse
 {
 	private $wxid = NULL;
-	private $username = NULL;
-	private $requestid = NULL;
+	public $username = NULL;
+	public $requestid = NULL;
 	private $type = NULL;
 	private $content = NULL;
 	private $music = array();
@@ -227,6 +232,37 @@ function weixin_user_access($user) {
 	else return user_access('allow weixin binding', $user) && user_access('administer users');
 }
 
+function weixin_log_load($lid) {
+	$log=db_select('weixin_log','l')->condition('l.logid',$lid)->fields('l')->execute()->fetchObject();
+	if($log) {
+		$content=$log->content;
+		$log->content=simplexml_load_string($content, 'SimpleXMLElement', LIBXML_NOCDATA);
+		return $log;
+	} else return FALSE;
+}
+
+function weixin_log_save($obj) {
+	if(get_class($obj)=='WechatRequest') {
+		return db_insert('weixin_log')->fields(array(
+			'refid' => $obj->msgid,
+			'direction' => WEIXIN_DIRECTION_INCOME,
+			'opposite' => $obj->username,
+			'timestamp' => time(),
+			'content' => $obj->rawinput,
+		))->execute();
+	} else if(get_class($obj)=='WechatResponse') {
+		$privlid=db_select('weixin_log','l')->condition('l.refid',$obj->requestid)->fields('l',array('logid'))->execute()->fetchField();
+		return db_insert('weixin_log')->fields(array(
+			'direction' => WEIXIN_DIRECTION_OUTCOME,
+			'opposite' => $obj->username,
+			'timestamp' => time(),
+			'previouslid' => $privlid,
+			'content' => $obj,
+		))->execute();
+	}
+
+}
+
 function weixin_admin_form($form, $form_state) {
 	$form=array(
 		'#submit' => array('weixin_admin_form_submit'),
@@ -290,6 +326,8 @@ function weixin_response() {
 	// Fill up relative structure
 	$request->pharsePost(file_get_contents("php://input"));
 	if(!$request->username) exit;
+	$r=db_select('weixin_log','l')->condition('l.refid',$request->msgid)->fields('l')->execute();
+	if($r->rowCount()) exit;
 	
 	$user=user_load(0);
 	$r=db_select('users_weixin','u')->condition('u.wx_openid',$request->username)->condition('u.status',1)->fields('u',array('uid'))->execute()->fetchObject();
@@ -297,14 +335,14 @@ function weixin_response() {
 		$user=user_load($r->uid);
 	$result=implode(module_invoke_all('weixin', $request, $user),'\n');
 	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
-	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').'/:--b'.t('Sorry, but I cannot understand what you are taking about.');
+	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').'/:--b'.t('Sorry, but I cannot understand what you are taking about.').t('Please send ? to list all the instructions.');
 
 	$resp=new WechatResponse($request);
 	$resp->text($result);
 	
 	watchdog('weixin',
 		'Recieved @content and returned @response.',
-		array('@content'=>($request->msgid), '@response'=>$result),
+		array('@content'=>weixin_log_save($request), '@response'=>weixin_log_save($resp)),
 		WATCHDOG_DEBUG
 	);
 	echo $resp;

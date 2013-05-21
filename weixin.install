@@ -70,7 +70,7 @@ $schema['weixin_validation'] = array(
 		),
 	),
 	'primary key' => array('uid'),
-	'unique keys'  => array(
+	'unique keys' => array(
 		'seed' => array('seed'),
 		'validation_code' => array('validation_code'),
 	),
@@ -110,9 +110,63 @@ $schema['weixin_rules'] = array(
 	'primary key' => array('ruleid'),
 	'indexes'  => array(
 		'weight' => array('weight'),
+		),
+	);
+// weixin_logs
+$schema['weixin_log'] = array(
+	'description' => t('Provides weixin logging feature'),
+	'fields' => array(
+		'logid' => array(
+			'type' => 'serial',
+			'unsigned' => TRUE,
+			'not null' => TRUE,
+			'description' => t('Unique Key: the id of log.'),
+		),
+		'refid' => array(
+			'type' => 'varchar',
+			'length' => '50',
+			'not null' => FALSE,
+			'description' => t('Unique key: reference id (upstream or local id).'),
+		),
+		'direction' => array(
+			'type' => 'int',
+			'size' => 'tiny',
+			'not null' => TRUE,
+			'description' => t('Message direction: income, outcome or massive pushing.'),
+		),
+		'opposite' => array(
+			'type' => 'varchar',
+			'length' => '50',
+			'not null' => TRUE,
+			'description' => t('The opposite of the message.'),
+		),
+		'timestamp' => array(
+			'type' => 'int',
+			'not null' => TRUE,
+			'description' => t('The timestamp of the message.'),
+		),
+		'previouslid' => array(
+			'type' => 'int',
+			'not null' => FALSE,
+			'description' => t('The last message of the conversation.'),
+		),
+		'content' => array(
+			'type' => 'varchar',
+			'length' => '4096',
+			'not null' => TRUE,
+			'description' => t('The content of message.'),
+			'serialize' => TRUE,
+		),
 	),
-);
-  return $schema;
+	'primary key' => array('logid'),
+	'indexes'  => array(
+		'refid' => array('refid'),
+		'direction' => array('direction'),
+		'opposite' => array('opposite'),
+		'timestamp' => array('timestamp'),
+		'previouslid' => array('previouslid'),
+		),
+	);
+	return $schema;
 }
-
 
