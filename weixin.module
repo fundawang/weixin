@@ -341,7 +341,7 @@ function weixin_response() {
 	$resp->text($result);
 	
 	watchdog('weixin',
-		'Recieved @content and returned @response.',
+		'Recieved id @content and returned id @response.',
 		array('@content'=>weixin_log_save($request), '@response'=>weixin_log_save($resp)),
 		WATCHDOG_DEBUG
 	);
