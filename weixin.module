@@ -337,7 +337,7 @@ function weixin_response() {
 	
 	$user=user_load(0);
 	$r=db_select('users_weixin','u')->condition('u.wx_openid',$request->username)->condition('u.status',1)->fields('u',array('uid'))->execute()->fetchObject();
-	if(isset($r->uid))
+	if(!empty($r->uid))
 		$user=user_load($r->uid);
 	$result=implode(module_invoke_all('weixin', $request, $user),'\n');
 	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
