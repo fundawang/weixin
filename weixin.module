@@ -339,12 +339,26 @@ function weixin_response() {
 	$r=db_select('users_weixin','u')->condition('u.wx_openid',$request->username)->condition('u.status',1)->fields('u',array('uid'))->execute()->fetchObject();
 	if(!empty($r->uid))
 		$user=user_load($r->uid);
-	$result=implode(module_invoke_all('weixin', $request, $user),'\n');
+	$result=module_invoke_all('weixin', $request, $user);
+	$resptype='text';
+	foreach($result as $r) {
+		if(in_array(gettype($r),array('array'))) {
+			$resptypes=array_keys($r);
+			$resptype=$resptypes[0];
+			unset($resptypes);
+			$results=array_values($r);
+			$result=$results[0];
+			unset($results);
+			break;
+		}
+	}
+	if($resptype=='text')
+		$result=implode($result, '\n');
 	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
 	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').'/:--b'.t('Sorry, but I cannot understand what you are taking about.').t('Please send ? to list all the instructions.');
 
 	$resp=new WechatResponse($request);
-	$resp->text($result);
+	call_user_func(array($resp, $resptype), $result);
 	
 	watchdog('weixin',
 		'Recieved id @content and returned id @response.',
