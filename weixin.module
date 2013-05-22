@@ -48,7 +48,7 @@ class WechatRequest
 		if($postObj!= FALSE && $this->wxid == $postObj->ToUserName) {
 			$this->rawinput = (string)$post;
 			$this->username = (string)$postObj->FromUserName;
-			if(property_exists($postObj->MsgId)) $this->msgid = (string)$postObj->MsgId;
+			if(property_exists($postObj, 'MsgId')) $this->msgid = (string)$postObj->MsgId;
 			$this->msgtype = (string)$postObj->MsgType;
 			switch($this->msgtype) {
 				case 'text':
