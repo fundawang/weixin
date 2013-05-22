@@ -35,7 +35,7 @@ class WechatRequest
 		$timestamp = $get["timestamp"];
 		$nonce = $get["nonce"];
 		$tmpArr = array($token, $timestamp, $nonce);
-		asort($tmpArr);
+		asort($tmpArr, SORT_STRING);
 		$tmpStr = implode( $tmpArr );
 		$tmpStr = sha1( $tmpStr );
 		if( $tmpStr == $signature ) return TRUE;
