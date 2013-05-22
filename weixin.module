@@ -23,7 +23,7 @@ class WechatRequest
 	public $username = NULL;
 	public $msgtype = NULL;
 	public $content = NULL;
-	public $rawinput = NULL;
+	private $rawinput = NULL;
 	
 	public function __construct($token, $args, $wxid) {
 		if($this->checkSignature($token, $args)) {
@@ -76,6 +76,10 @@ class WechatRequest
 			}
 		}
 		unset($postObj);
+	}
+
+	public function __toString() {
+		return $this->rawinput;
 	}
 }
 
@@ -248,7 +252,7 @@ function weixin_log_save($obj) {
 			'direction' => WEIXIN_DIRECTION_INCOME,
 			'opposite' => $obj->username,
 			'timestamp' => time(),
-			'content' => $obj->rawinput,
+			'content' => (string)$obj,
 		))->execute();
 	} else if(get_class($obj)=='WechatResponse') {
 		$privlid=db_select('weixin_log','l')->condition('l.refid',$obj->requestid)->fields('l',array('logid'))->execute()->fetchField();
@@ -257,7 +261,7 @@ function weixin_log_save($obj) {
 			'opposite' => $obj->username,
 			'timestamp' => time(),
 			'previouslid' => $privlid,
-			'content' => $obj,
+			'content' => (string)$obj,
 		))->execute();
 	}
 
