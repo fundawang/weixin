@@ -10,9 +10,12 @@
  */
 
 define("WEIXIN_SEED_LENGTH",8);
+define("WEIXIN_DIRECTION_INCOME",1);
+define("WEIXIN_DIRECTION_OUTCOME",2);
+
 
 // Define weixin classes
-// Constructor: $wee = new WechatRequest($token, $_GET, $wxid);
+// Constructor: $wee = new WechatRequest($token, $_GET, $wxid, $post);
 class WechatRequest
 {
 	public $wxid = NULL;
@@ -20,10 +23,12 @@ class WechatRequest
 	public $username = NULL;
 	public $msgtype = NULL;
 	public $content = NULL;
+	private $rawinput = NULL;
 	
-	public function __construct($token, $args, $wxid) {
+	public function __construct($token, $args, $wxid, $post=NULL) {
 		if($this->checkSignature($token, $args)) {
 			$this->wxid=$wxid;
+			if(!empty($post)) $this->pharsePost($post);
 		}
 	}
 	private function checkSignature($token, $get) {
@@ -31,25 +36,26 @@ class WechatRequest
 		$timestamp = $get["timestamp"];
 		$nonce = $get["nonce"];
 		$tmpArr = array($token, $timestamp, $nonce);
-		asort($tmpArr);
+		asort($tmpArr, SORT_STRING);
 		$tmpStr = implode( $tmpArr );
 		$tmpStr = sha1( $tmpStr );
 		if( $tmpStr == $signature ) return TRUE;
 		else return FALSE;
 	}
 	
-	public function pharsePost($post) {
+	private function pharsePost($post) {
 		$postObj = simplexml_load_string($post, 'SimpleXMLElement', LIBXML_NOCDATA);
 		if($postObj!= FALSE && $this->wxid == $postObj->ToUserName) {
+			$this->rawinput = (string)$post;
 			$this->username = (string)$postObj->FromUserName;
-			$this->msgid = (string)$postObj->MsgId;
+			if(property_exists($postObj, 'MsgId')) $this->msgid = (string)$postObj->MsgId;
 			$this->msgtype = (string)$postObj->MsgType;
 			switch($this->msgtype) {
 				case 'text':
 					$this->content = trim((string)$postObj->Content);
 					break;
 				case 'event':
-					if(in_array((string)$postObj->Event, arary('subscribe', 'unsubscribe')))
+					if(in_array((string)$postObj->Event, array('subscribe', 'unsubscribe')))
 						$this->content = (string)$postObj->Event;
 					else
 						$this->content = array(
@@ -72,13 +78,17 @@ class WechatRequest
 		}
 		unset($postObj);
 	}
+
+	public function __toString() {
+		return $this->rawinput;
+	}
 }
 
 class WechatResponse
 {
 	private $wxid = NULL;
-	private $username = NULL;
-	private $requestid = NULL;
+	public $username = NULL;
+	public $requestid = NULL;
 	private $type = NULL;
 	private $content = NULL;
 	private $music = array();
@@ -170,6 +180,12 @@ function weixin_help($path, $arg) {
 		case 'user/%/weixin':
 			$output = '<p>'.t('In this page, you could bind your account with a weixin id, or detach your account from existing weixin id.').'</p>';
 			break;
+		case 'weixin':
+			if(isset($arg) && $arg=='weixin') {
+				$output = t('Welcome to @sitename. You are talking with robot now.',array('@sitename'=>variable_get('site_name')));
+				$output .= t('You may send following instructions to interact with the robot.');
+			}
+			break;
 		default:
 			return;
 	}
@@ -221,6 +237,37 @@ function weixin_user_access($user) {
 	else return user_access('allow weixin binding', $user) && user_access('administer users');
 }
 
+function weixin_log_load($lid) {
+	$log=db_select('weixin_log','l')->condition('l.logid',$lid)->fields('l')->execute()->fetchObject();
+	if($log) {
+		$content=$log->content;
+		$log->content=simplexml_load_string($content, 'SimpleXMLElement', LIBXML_NOCDATA);
+		return $log;
+	} else return FALSE;
+}
+
+function weixin_log_save($obj) {
+	if(get_class($obj)=='WechatRequest') {
+		return db_insert('weixin_log')->fields(array(
+			'refid' => $obj->msgid,
+			'direction' => WEIXIN_DIRECTION_INCOME,
+			'opposite' => $obj->username,
+			'timestamp' => time(),
+			'content' => (string)$obj,
+		))->execute();
+	} else if(get_class($obj)=='WechatResponse') {
+		$privlid=db_select('weixin_log','l')->condition('l.refid',$obj->requestid)->fields('l',array('logid'))->execute()->fetchField();
+		return db_insert('weixin_log')->fields(array(
+			'direction' => WEIXIN_DIRECTION_OUTCOME,
+			'opposite' => $obj->username,
+			'timestamp' => time(),
+			'previouslid' => $privlid,
+			'content' => (string)$obj,
+		))->execute();
+	}
+
+}
+
 function weixin_admin_form($form, $form_state) {
 	$form=array(
 		'#submit' => array('weixin_admin_form_submit'),
@@ -268,7 +315,7 @@ function weixin_admin_form_submit($form, $form_state) {
 function weixin_response() {
 	$wxid=variable_get('weixinid', '');
 	$token=variable_get('weixintoken', '');
-	$request = new WechatRequest($token, $_GET, $wxid);
+	$request = new WechatRequest($token, $_GET, $wxid, file_get_contents("php://input"));
 	// If connecting to public platform, then echo $_GET['echostr'] and exit.
 	if($_SERVER['REQUEST_METHOD']=='GET') {
 		watchdog('weixin',
@@ -282,23 +329,40 @@ function weixin_response() {
 	}
 	
 	// Fill up relative structure
-	$request->pharsePost(file_get_contents("php://input"));
 	if(!$request->username) exit;
+	if($request->msgid) {
+		$r=db_select('weixin_log','l')->condition('l.refid',$request->msgid)->condition('l.direction',WEIXIN_DIRECTION_INCOME)->fields('l')->execute();
+		if($r->rowCount()) exit;
+	}
 	
 	$user=user_load(0);
 	$r=db_query('SELECT uid FROM {users_weixin} WHERE wx_openid=:wx_openid AND status=1',array(':wx_openid'=>$request->username))->fetchObject();
-	if(isset($r->uid))
+	if($r && isset($r->uid))
 		$user=user_load($r->uid);
-	$result=implode(module_invoke_all('weixin', $request, $user),'\n');
+	$result=module_invoke_all('weixin', $request, $user);
+	$resptype='text';
+	foreach($result as $r) {
+		if(in_array(gettype($r),array('array'))) {
+			$resptypes=array_keys($r);
+			$resptype=$resptypes[0];
+			unset($resptypes);
+			$results=array_values($r);
+			$result=$results[0];
+			unset($results);
+			break;
+		}
+	}
+	if($resptype=='text')
+		$result=implode($result, '\n');
 	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
-	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').'/:--b'.t('Sorry, but I cannot understand what you are taking about.');
+	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').'/:--b'.t('Sorry, but I cannot understand what you are taking about.').t('Please send ? to list all the instructions.');
 
 	$resp=new WechatResponse($request);
-	$resp->text($result);
+	call_user_func(array($resp, $resptype), $result);
 	
 	watchdog('weixin',
-		'Recieved @content and returned @response.',
-		array('@content'=>($request->msgid), '@response'=>$result),
+		'Recieved id @content and returned id @response.',
+		array('@content'=>weixin_log_save($request), '@response'=>weixin_log_save($resp)),
 		WATCHDOG_DEBUG
 	);
 	echo $resp;
@@ -338,11 +402,17 @@ function weixin_user_binding($form, $form_state, $user) {
 			$seed='';
 			$validationcode='';
 			$allowable_characters = 'ABCEFHIKLMNPQRSTUVWXYZ';
-			$len = strlen($allowable_characters) - 1;
-			for($i=0;$i<WEIXIN_SEED_LENGTH;$i++) {
-				$seed.=$allowable_characters[mt_rand(0, $len)];
-				$validationcode.=$allowable_characters[mt_rand(0, $len)];
-			}
+			do {
+				$seed='';
+				$validationcode='';
+				$len = strlen($allowable_characters) - 1;
+				for($i=0;$i<WEIXIN_SEED_LENGTH;$i++) {
+					$seed.=$allowable_characters[mt_rand(0, $len)];
+					$validationcode.=$allowable_characters[mt_rand(0, $len)];
+				}
+				$db_or=db_or()->condition('seed',$seed)->condition('validation_code',$validationcode);
+				$r=db_select('weixin_validation','w')->fields('w')->condition($db_or)->execute();
+			} while ($r->rowCount()>0);
 			db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
 			db_insert('weixin_validation')->fields(array(
 				'uid' => $user->uid,
@@ -452,6 +522,11 @@ function weixin_weixin($request, $user) {
 		); 
 	}
 	$content=trim($request->content);
+	if($request->msgtype=='text' && in_array($content, array('?', "？", t('Help')))) {
+		$t=weixin_help('weixin','weixin');
+		$t.="\n\n";
+		$t.=implode(array_filter(module_invoke_all('help','weixin',NULL)),"\n\n");
+	}
 	// If sent given number of ucase chars, then validate it.
 	if($request->msgtype=='text' && preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
 		$r=db_query('SELECT * FROM {weixin_validation} WHERE seed=:seed', array(':seed'=>$content))->fetchObject();
@@ -475,13 +550,17 @@ function weixin_weixin($request, $user) {
 	}
 	// If user want to unbound the weixin account, then do it.
 	if($request->msgtype=='text' && preg_match('/'.t('Unbound').'/',$content)) {
-		db_delete('users_weixin')->condition('uid',$user->uid)->execute();
-		$t=t('@username has been unbound with your weixin account.', array('@username'=>$user->name));
-		watchdog('weixin',
-			'@username unbound his account with weixin.',
-			array('@username'=>$user->name),
-			WATCHDOG_DEBUG
-		); 
+		$r=db_delete('users_weixin')->condition('uid',$user->uid)->execute();
+		if($r) {
+			$t=t('@username has been unbound with your weixin account.', array('@username'=>$user->name));
+			watchdog('weixin',
+				'@username unbound his account with weixin.',
+				array('@username'=>$user->name),
+				WATCHDOG_DEBUG
+			); 
+		} else {
+			$t=t('You haven\'t bound your weixin account yet.');
+		}
 	}
 
 	if(isset($t)) return $t;
