@@ -286,7 +286,7 @@ function weixin_response() {
 	if(!$request->username) exit;
 	
 	$user=user_load(0);
-	$r=db_select('users_weixin','u')->condition('u.wx_openid',$request->username)->condition('u.status',1)->fields('u',array('uid'))->execute()->fetchObject();
+	$r=db_query('SELECT uid FROM {users_weixin} WHERE wx_openid=:wx_openid AND status=1',array(':wx_openid'=>$request->username))->fetchObject();
 	if(isset($r->uid))
 		$user=user_load($r->uid);
 	$result=implode(module_invoke_all('weixin', $request, $user),'\n');
@@ -314,7 +314,7 @@ function weixin_response_access() {
 }
 
 function weixin_user_binding($form, $form_state, $user) {
-	$r=db_select('users_weixin','u')->fields('u')->condition('u.uid',$user->uid)->condition('u.status',1)->countQuery()->execute()->fetchField();
+	$r=db_query('SELECT EXISTS (SELECT * FROM {users_weixin} WHERE uid=:uid AND status=1)', array(':uid'=>$user->uid))->fetchField();
 	$form=array();
 	$form['user']=array(
 		'#type' => 'hidden',
@@ -332,8 +332,9 @@ function weixin_user_binding($form, $form_state, $user) {
 			'#submit' => array('weixin_user_binding_unbound'),
 		);
 	} else {
-		$result=db_select('weixin_validation','w')->condition('uid',$user->uid)->fields('w',array('expiration_time'))->execute();
-		if($result->rowCount()==0 || $result->fetchField() < time() ) {
+		$result=db_query('SELECT expiration_time FROM {weixin_validation} WHERE uid=:uid AND expiration_time<:time',
+			array(':uid'=>$user->uid, ':time'=>time()))->fetchField();
+		if($result) {
 			$seed='';
 			$validationcode='';
 			$allowable_characters = 'ABCEFHIKLMNPQRSTUVWXYZ';
@@ -350,7 +351,7 @@ function weixin_user_binding($form, $form_state, $user) {
 				'expiration_time'=> time()+300,
 			))->execute();
 		}
-		$r=db_select('weixin_validation','w')->condition('uid',$user->uid)->fields('w')->execute()->fetchObject();
+		$r=db_query('SELECT * FROM {weixin_validation} WHERE uid=:uid',array(':uid'=>$user->uid))->fetchObject();
 		$seed=$r->seed;
 		$validationcode=$r->validation_code;
 		$form['description']=array(
@@ -391,8 +392,9 @@ function weixin_user_binding($form, $form_state, $user) {
 
 function weixin_user_binding_validate($form, &$form_state) {
 	if(isset($form_state['values']['step3'])) {
-		$result=db_select('users_weixin','u')->condition('status',0)->condition('uid',$form_state['values']['user'])->fields('u')->execute();
-		if($result->rowCount()==0) {
+		$result=db_query('SELECT EXISTS (SELECT * FROM {users_weixin} WHERE status=0 AND uid=:uid)',
+			array(':uid'=>$form_state['values']['user']))->fetchField();
+		if($result) {
 			form_set_error('step3', t('It seems that you have not send the message to our weixina public account.')); return;
 		}
 		$query=db_select('weixin_validation','w')->condition('seed',$form_state['values']['step2'])->fields('w');
@@ -415,7 +417,7 @@ function weixin_user_binding_submit($form, &$form_state) {
 		'status'=>1,
 	))->execute();
 	db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
-	$r=db_select('users_weixin','u')->condition('uid',$user->uid)->fields('u',array('wx_openid'))->execute()->fetchField();
+	$r=db_query('SELECT wx_openid FROM {users_weixin} WHERE uid=:uid',array(':uid'=>$user->uid))->fetchField();
 	watchdog('weixin',
 		'@username bound his account with weixin id @wxid.',
 		array('@username'=>$user->name, '@wxid'=>$r),
@@ -452,10 +454,10 @@ function weixin_weixin($request, $user) {
 	$content=trim($request->content);
 	// If sent given number of ucase chars, then validate it.
 	if($request->msgtype=='text' && preg_match('/^[A-Z]{'.WEIXIN_SEED_LENGTH.'}$/',$content)) {
-		$r=db_select('weixin_validation','w')->fields('w')->condition('seed',$content)->execute()->fetchObject();
+		$r=db_query('SELECT * FROM {weixin_validation} WHERE seed=:seed', array(':seed'=>$content))->fetchObject();
 		if($r) {
 			// Lets check if the users have been registered with another account at first
-			$c=db_select('users_weixin','u')->condition('wx_openid',$request->username)->fields('u')->countQuery()->execute()->fetchField();
+			$c=db_query('SELECT EXISTS (SELECT * FROM {users_weixin} WHERE wx_openid=:wx_openid)', array(':wx_openid'=>$request->username))->fetchField();
 			if($c>0)
 				$t=t('Sorry, you have already registered with another account at @sitename.', array('@sitename'=>variable_get('site_name')));
 			else if($r->expiration_time < time())
