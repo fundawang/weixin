@@ -325,14 +325,14 @@ function weixin_response() {
 		);
 		drupal_add_http_header('Content-Type', 'text/plain; charset=utf-8');
 		echo $_GET['echostr'];
-		exit;
+		drupal_exit();
 	}
 	
 	// Fill up relative structure
-	if(!$request->username) exit;
+	if(!$request->username) drupal_exit();
 	if($request->msgid) {
 		$r=db_select('weixin_log','l')->condition('l.refid',$request->msgid)->condition('l.direction',WEIXIN_DIRECTION_INCOME)->fields('l')->execute();
-		if($r->rowCount()) exit;
+		if($r->rowCount()) drupal_exit();
 	}
 	
 	$user=user_load(0);
@@ -366,7 +366,7 @@ function weixin_response() {
 		WATCHDOG_DEBUG
 	);
 	echo $resp;
-	exit;
+	drupal_exit();
 }
 
 function weixin_response_access() {
