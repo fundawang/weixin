@@ -229,6 +229,13 @@ function weixin_menu() {
 		'access callback' => 'weixin_user_access',
 		'access arguments' => array(1),
 	);
+	$items['user/%user/weixin_qrcode_callback'] = array(
+		'page callback' => 'weixin_qrcode_callback',
+		'page arguments' => array(1),
+		'type' => MENU_CALLBACK,
+		'access callback' => 'weixin_user_access',
+		'access arguments' => array(1),
+	);
 	return $items;
 }
 
@@ -378,12 +385,17 @@ function weixin_response_access() {
 }
 
 function weixin_user_binding($form, $form_state, $user) {
-	$r=db_query('SELECT EXISTS (SELECT * FROM {users_weixin} WHERE uid=:uid AND status=1)', array(':uid'=>$user->uid))->fetchField();
 	$form=array();
-	$form['user']=array(
-		'#type' => 'hidden',
-		'#value' => $user->uid,
-	);
+	$form['#user']=$user;
+	$form['#attached']['js']=array('function worker() {'.
+		'jQuery.get("'.$GLOBALS['base_path'].'user/'.$user->uid.'/weixin_qrcode_callback", function(data) {'.
+			"if(data=='0') {setTimeout(worker, 5000);}".
+			'else location.reload(true);'.
+			'});'.
+		'} '.
+		'jQuery(document).ready(function() {setTimeout(worker, 5000);});' => array('type'=>'inline'));
+	$r=db_query('SELECT EXISTS (SELECT * FROM {users_weixin} WHERE uid=:uid AND status=1)', array(':uid'=>$user->uid))->fetchField();
+
 	// Means it has been bound with
 	if($r) { // this user has already bound with weixin account
 		$form['description']=array(
@@ -396,9 +408,9 @@ function weixin_user_binding($form, $form_state, $user) {
 			'#submit' => array('weixin_user_binding_unbound'),
 		);
 	} else {
-		$result=db_query('SELECT expiration_time FROM {weixin_validation} WHERE uid=:uid AND expiration_time<:time',
+		$result=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE uid=:uid AND expiration_time<:time)',
 			array(':uid'=>$user->uid, ':time'=>time()))->fetchField();
-		if($result) {
+		if(!$result) {
 			$seed='';
 			$validationcode='';
 			$allowable_characters = 'ABCEFHIKLMNPQRSTUVWXYZ';
@@ -410,9 +422,9 @@ function weixin_user_binding($form, $form_state, $user) {
 					$seed.=$allowable_characters[mt_rand(0, $len)];
 					$validationcode.=$allowable_characters[mt_rand(0, $len)];
 				}
-				$db_or=db_or()->condition('seed',$seed)->condition('validation_code',$validationcode);
-				$r=db_select('weixin_validation','w')->fields('w')->condition($db_or)->execute();
-			} while ($r->rowCount()>0);
+				$r=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE seed=:seed OR validation_code=:code)',
+					array(':seed'=>$seed, ':code'=>$validationcode))->fetchField();
+			} while ($r);
 			db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
 			db_insert('weixin_validation')->fields(array(
 				'uid' => $user->uid,
@@ -463,7 +475,7 @@ function weixin_user_binding($form, $form_state, $user) {
 function weixin_user_binding_validate($form, &$form_state) {
 	if(isset($form_state['values']['step3'])) {
 		$result=db_query('SELECT EXISTS (SELECT * FROM {users_weixin} WHERE status=0 AND uid=:uid)',
-			array(':uid'=>$form_state['values']['user']))->fetchField();
+			array(':uid'=>$form['#user']->uid))->fetchField();
 		if($result) {
 			form_set_error('step3', t('It seems that you have not send the message to our weixina public account.')); return;
 		}
@@ -482,29 +494,34 @@ function weixin_user_binding_validate($form, &$form_state) {
 }
 
 function weixin_user_binding_submit($form, &$form_state) {
-	$user=user_load($form_state['values']['user']);
-	db_update('users_weixin')->condition('uid',$form_state['values']['user'])->condition('status',0)->fields(array(
+	db_update('users_weixin')->condition('uid',$form['#user']->uid)->condition('status',0)->fields(array(
 		'status'=>1,
 	))->execute();
-	db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
-	$r=db_query('SELECT wx_openid FROM {users_weixin} WHERE uid=:uid',array(':uid'=>$user->uid))->fetchField();
+	db_delete('weixin_validation')->condition('uid',$form['#user']->uid)->execute();
+	$r=db_query('SELECT wx_openid FROM {users_weixin} WHERE uid=:uid',array(':uid'=>$form['#user']->uid))->fetchField();
 	watchdog('weixin',
 		'@username bound his account with weixin id @wxid.',
-		array('@username'=>$user->name, '@wxid'=>$r),
+		array('@username'=>$form['#user']->name, '@wxid'=>$r),
 		WATCHDOG_INFO
 	);
 	drupal_set_message(t('Weixin acccount bound successfully.'));
 }
 
 function weixin_user_binding_unbound($form, $form_state) {
-	$user=user_load($form_state['values']['user']);
-	db_delete('users_weixin')->condition('uid',$user->uid)->execute();
+	db_delete('users_weixin')->condition('uid',$form['#user']->uid)->execute();
 	watchdog('weixin',
 		'@user detached his weixin account.',
-		array('@user'=>$user->name),
+		array('@user'=>$form['#user']->name),
 		WATCHDOG_INFO
-	); 
+	);
 	drupal_set_message(t('Weixin acccount detached.'));
+}
+
+function weixin_qrcode_callback($user) {
+	$query=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE uid=:uid AND expiration_time<=:time)',
+		array(':uid'=>$user->uid, ':time'=>time()));
+	$r=$query->fetchField();
+	drupal_json_output($r);
 }
 
 function weixin_weixin($request, $user) {
