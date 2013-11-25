@@ -410,7 +410,7 @@ function weixin_user_binding($form, $form_state, $user) {
 	} else {
 		$result=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE uid=:uid AND expiration_time<:time)',
 			array(':uid'=>$user->uid, ':time'=>time()))->fetchField();
-		if(!$result) {
+		if($result) {
 			$seed='';
 			$validationcode='';
 			$allowable_characters = 'ABCEFHIKLMNPQRSTUVWXYZ';
@@ -476,7 +476,7 @@ function weixin_user_binding_validate($form, &$form_state) {
 	if(isset($form_state['values']['step3'])) {
 		$result=db_query('SELECT EXISTS (SELECT * FROM {users_weixin} WHERE status=0 AND uid=:uid)',
 			array(':uid'=>$form['#user']->uid))->fetchField();
-		if($result) {
+		if(!$result) {
 			form_set_error('step3', t('It seems that you have not send the message to our weixina public account.')); return;
 		}
 		$query=db_select('weixin_validation','w')->condition('seed',$form_state['values']['step2'])->fields('w');
