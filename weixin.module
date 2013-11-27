@@ -530,6 +530,9 @@ function weixin_user_binding($form, $form_state, $user) {
 		'div#edit-weixinuser { height: 60px; vertical-align: middle; padding-left: 40px;}'.
 		'div#edit-weixinuser > img { width: 50px; height: 50px; vertical-align: middle;}'.
 		'div#edit-weixinuser > span { padding-left: 10px; height: 50px;}'.
+		'div#weixin_qrcode { display: inline-block; margin-left: 40px; width: 380px; }'.
+		'div#weixin_qrcode > img#weixin_qrcode { width: 300px; height: 300px;}'.
+		'div#weixin_qrcode > img#weixin_qrcode_phone_scan { display: none; padding-bottom: 20px; margin-left: -100px; top: 30px; position: relative; height: 205px;}'.
 		'' => array('type'=>'inline')
 	);
 	$r=db_query('SELECT EXISTS (SELECT * FROM {users_weixin} WHERE uid=:uid AND status=1)', array(':uid'=>$user->uid))->fetchField();
@@ -596,6 +599,12 @@ function weixin_user_binding($form, $form_state, $user) {
 			}
 		}
 		if($showqrcode) {
+			$form['#attached']['js']+=array(
+				'jQuery(document).ready(function() {'.
+					'jQuery("div#weixin_qrcode").mouseenter(function() {jQuery("img#weixin_qrcode_phone_scan").fadeIn();});'.
+					'jQuery("div#weixin_qrcode").mouseleave(function() {jQuery("img#weixin_qrcode_phone_scan").fadeOut();});'.
+				'});' => array('type' => 'inline')
+			);
 			$imgurl=sprintf('https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=%s',
 				urlencode($resp->ticket));
 			$form['qrcode']=array(
@@ -607,7 +616,7 @@ function weixin_user_binding($form, $form_state, $user) {
 				'#suffix' => '</div>',
 			);
 			$form['scan']=array(
-				'#type' => 'markup',
+				'#type' => 'item',
 				'#markup' => t('Scan above qrcode to bind your account with !weixinid.', array('!weixinid'=>'<code>'.variable_get('weixinname').'</code>'))
 			);
 			db_merge('weixin_validation')->key(array('uid'=>$user->uid))->fields(array(
