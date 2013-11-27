@@ -530,7 +530,7 @@ function weixin_user_binding($form, $form_state, $user) {
 		'div#edit-weixinuser { height: 60px; vertical-align: middle; padding-left: 40px;}'.
 		'div#edit-weixinuser > img { width: 50px; height: 50px; vertical-align: middle;}'.
 		'div#edit-weixinuser > span { padding-left: 10px; height: 50px;}'.
-		'div#weixin_qrcode { display: inline-block; margin-left: 40px; width: 380px; }'.
+		'div#weixin_qrcode { display: inline-block; margin-left: 40px; width: 380px; margin-bottom: 20px;}'.
 		'div#weixin_qrcode > img#weixin_qrcode { width: 300px; height: 300px;}'.
 		'div#weixin_qrcode > img#weixin_qrcode_phone_scan { display: none; padding-bottom: 20px; margin-left: -100px; top: 30px; position: relative; height: 205px;}'.
 		'' => array('type'=>'inline')
@@ -607,6 +607,10 @@ function weixin_user_binding($form, $form_state, $user) {
 			);
 			$imgurl=sprintf('https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=%s',
 				urlencode($resp->ticket));
+			$form['scan']=array(
+				'#type' => 'item',
+				'#markup' => t('Scan following qrcode to bind your account with !weixinid.', array('!weixinid'=>'<code>'.variable_get('weixinname').'</code>'))
+			);
 			$form['qrcode']=array(
 				'#type' => 'markup',
 				'#prefix' => '<div id="weixin_qrcode">',
@@ -614,10 +618,6 @@ function weixin_user_binding($form, $form_state, $user) {
 					sprintf('<img id="weixin_qrcode_phone_scan" '.
 						'src="https://res.wx.qq.com/zh_CN/htmledition/images/login/login_guide17ced3.png">'),
 				'#suffix' => '</div>',
-			);
-			$form['scan']=array(
-				'#type' => 'item',
-				'#markup' => t('Scan above qrcode to bind your account with !weixinid.', array('!weixinid'=>'<code>'.variable_get('weixinname').'</code>'))
 			);
 			db_merge('weixin_validation')->key(array('uid'=>$user->uid))->fields(array(
 				'uid' => $user->uid,
