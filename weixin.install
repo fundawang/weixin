@@ -34,6 +34,15 @@ $schema['users_weixin'] = array(
 			'not null' => TRUE,
 			'default' => 0,
 		),
+		'nickname' => array(
+			'type' => 'varchar',
+			'length' => '100',
+			'not null' => FALSE,
+		),
+		'avatar' => array(
+			'type' => 'blob',
+			'not null' => FALSE,
+		),
 	),
 	'primary key' => array('uid'),
 	'unique keys'  => array(
@@ -170,3 +179,10 @@ $schema['weixin_log'] = array(
 	return $schema;
 }
 
+function weixin_update_7000() {
+	$nickname = array('type' => 'varchar', 'length' => '100', 'not null' => FALSE);
+	db_add_field('users_weixin', 'nickname', $nickname, $index);
+
+	$avatar = array('type' => 'blob', 'not null' => FALSE);
+	db_add_field('users_weixin', 'avatar', $avatar, $index);
+}

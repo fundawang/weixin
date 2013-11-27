@@ -55,12 +55,9 @@ class WechatRequest
 					$this->content = trim((string)$postObj->Content);
 					break;
 				case 'event':
-					if(in_array((string)$postObj->Event, array('subscribe', 'unsubscribe')))
-						$this->content = (string)$postObj->Event;
-					else
-						$this->content = array(
-							(string)$postObj->Event => (string)$postObj->EventKey,
-						);
+					$this->content = array(
+						(string)$postObj->Event => (string)$postObj->EventKey
+					);
 					break;
 				case 'image':
 					$this->content = (string)$postObj->PicUrl;
@@ -229,6 +226,13 @@ function weixin_menu() {
 		'access callback' => 'weixin_user_access',
 		'access arguments' => array(1),
 	);
+	$items['user/%user/weixin_avatar.jpg'] = array(
+		'page callback' => 'weixin_user_avatar',
+		'page arguments' => array(1),
+		'type' => MENU_CALLBACK,
+		'access callback' => 'weixin_user_avatar_access',
+		'access arguments' => array(1),
+	);
 	$items['user/%user/weixin_qrcode_callback'] = array(
 		'page callback' => 'weixin_qrcode_callback',
 		'page arguments' => array(1),
@@ -306,6 +310,18 @@ function weixin_admin_form($form, $form_state) {
 		'#default_value' => variable_get('weixintoken', ''),
 		'#required' => TRUE,
 	);
+	$form['weixinappid'] = array(
+		'#type' => 'textfield',
+		'#title' => t('AppID'),
+		'#description' => t('The appid given by weixin public platform.'),
+		'#default_value' => variable_get('weixinappid', ''),
+	);
+	$form['weixinappsecret'] = array(
+		'#type' => 'textfield',
+		'#title' => t('AppSecret'),
+		'#description' => t('The app secret given by weixin public platform.'),
+		'#default_value' => variable_get('weixinappsecret', ''),
+	);
 	return system_settings_form($form);
 }
 
@@ -313,10 +329,133 @@ function weixin_name_fake_exists($value) {
 	return FALSE;
 }
 
+function weixin_admin_form_validate($form, $form_state) {
+	if(!empty($form_state['values']['weixinappid'])) {
+		if(empty($form_state['values']['weixinappsecret']))
+			form_set_error('weixinappsecret', t('AppSecret cannot be empty if appid is set.'));
+		else {
+			$url=sprintf('https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s',
+				$form_state['values']['weixinappid'], $form_state['values']['weixinappsecret']
+				);
+			$r=drupal_http_request($url);
+			if($r->code !='200') {
+				form_set_error('appid', t('There are communication error now, please try again later.'));
+			} else {
+				$resp=json_decode($r->data);
+				if(empty($resp->access_token)) {
+					form_set_error('appid', t('There appid or appsecret is invalid.'));
+					form_set_error('appsecret');
+				} else {
+					$resp->expires_in+=time();
+					variable_set('weixinaccess_token', $resp);
+				}
+			}
+		}
+	}
+
+}
+
 function weixin_admin_form_submit($form, $form_state) {
-	variable_set('weixinname',$form_state['values']['weixinname']);
-	variable_set('weixinid',$form_state['values']['weixinid']);
-	variable_set('weixintoken',$form_state['values']['weixintoken']);
+	$settings=array(
+		'weixinname', 'weixinid', 'weixintoken', 'weixinappid', 'weixinappsecret'
+	);
+	foreach($settings as $s) {
+		variable_set($s, $form_state['values'][$s]);
+	}
+	if(empty($form_state['values']['weixinappid'])) {
+		variable_del('weixinaccess_token');
+	}
+
+	if(empty($form_state['values']['weixinappid'])) return;
+	$menus=module_invoke_all('weixin_menu');
+	$weixin_menu=array();
+	foreach($menus as $menuitem) {
+		$weixin_menu[$menuitem['weight']]=$menuitem['title'];
+	}
+
+	// Update menu
+	$weixin_menu_export=array();
+	for($i=1; $i<=3; $i++) {
+		for($j=1;$j<=5;$j++) {
+			if(isset($weixin_menu[$i*10+$j]))
+				$weixin_menu_export[$i-1][$j-1]=array(
+					'type' => 'click',
+					'name' => $weixin_menu[$i*10+$j],
+					'key' => 'weixin_menu_'.$i.$j,
+				);
+		}
+		if(empty($weixin_menu_export[$i-1])) {
+			if(isset($weixin_menu[$i]))
+				$weixin_menu_export[$i-1]=array(
+					"type" => "click",
+					'name' => $weixin_menu[$i],
+					'key' => 'weixin_menu_'.$i,
+				);
+		} else {
+			$item=$weixin_menu_export[$i-1];
+			$weixin_menu_export[$i-1]=array(
+				'name' => $weixin_menu[$i],
+				'sub_button' => $item
+			);
+		}
+	}
+	$menu=sprintf('{"button":%s}',json_encode($weixin_menu_export));
+	$access_token=_weixin_access_token();
+
+	$url=sprintf('https://api.weixin.qq.com/cgi-bin/menu/delete?access_token=%s', $access_token);
+	$r=drupal_http_request($url);
+	if($r->code !='200') return FALSE;
+	$resp=json_decode($r->data);
+	if($resp->errcode!=0) {
+		drupal_set_message(t('Customized menu delete failed: !errcode @errmsg',
+			array('!errcode'=>$resp->errcode, '@errmsg'=>$resp->errmsg)), 'error');
+		return;
+	}
+
+	$url=sprintf('https://api.weixin.qq.com/cgi-bin/menu/create?access_token=%s', $access_token);
+	$options = array(
+		'method' => 'POST',
+		'data' => $menu,
+	);
+	$r=drupal_http_request($url, $options);
+	if($r->code !='200') return FALSE;
+	$resp=json_decode($r->data);
+	if($resp->errcode!=0) {
+		drupal_set_message(t('Customized menu set failed: !errcode @errmsg',
+			array('!errcode'=>$resp->errcode, '@errmsg'=>$resp->errmsg)), 'error');
+	} else
+		drupal_set_message(t('Customized menu set.'));
+}
+
+function _weixin_access_token() {
+	$v=variable_get('weixinappid');
+	if(empty($v)) return FALSE;
+	$v=variable_get('weixinaccess_token');
+	if(empty($v) || $v->expires_in <= time()) {
+		$url=sprintf('https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s',
+			variable_get('weixinappid'), variable_get('weixinappsecret')
+			);
+		$r=drupal_http_request($url);
+		if($r->code !='200') return FALSE;
+		$resp=json_decode($r->data);
+		if(empty($resp->access_token)) return FALSE;
+		$resp->expires_in+=time();
+		variable_set('weixinaccess_token', $resp);
+		return $resp->access_token;
+	} else return $v->access_token;
+}
+
+function _weixin_get_user_info($openid) {
+	if(empty($openid)) return FALSE;
+	$access_token=_weixin_access_token();
+	if(empty($access_token)) return FALSE;
+	$url=sprintf('https://api.weixin.qq.com/cgi-bin/user/info?access_token=%s&openid=%s',
+		$access_token, $openid);
+	$r=drupal_http_request($url);
+	if($r->code !='200') return FALSE;
+	$resp=json_decode($r->data);
+	if(empty($resp->openid)) return FALSE;
+	return $resp;
 }
 
 function weixin_response() {
@@ -387,86 +526,153 @@ function weixin_response_access() {
 function weixin_user_binding($form, $form_state, $user) {
 	$form=array();
 	$form['#user']=$user;
-	$form['#attached']['js']=array('function worker() {'.
-		'jQuery.get("'.$GLOBALS['base_path'].'user/'.$user->uid.'/weixin_qrcode_callback", function(data) {'.
-			"if(data=='0') {setTimeout(worker, 5000);}".
-			'else location.reload(true);'.
-			'});'.
-		'} '.
-		'jQuery(document).ready(function() {setTimeout(worker, 5000);});' => array('type'=>'inline'));
+	$form['#attached']['css']=array(
+		'div#edit-weixinuser { height: 60px; vertical-align: middle; padding-left: 40px;}'.
+		'div#edit-weixinuser > img { width: 50px; height: 50px; vertical-align: middle;}'.
+		'div#edit-weixinuser > span { padding-left: 10px; height: 50px;}'.
+		'' => array('type'=>'inline')
+	);
 	$r=db_query('SELECT EXISTS (SELECT * FROM {users_weixin} WHERE uid=:uid AND status=1)', array(':uid'=>$user->uid))->fetchField();
 
 	// Means it has been bound with
 	if($r) { // this user has already bound with weixin account
-		$form['description']=array(
-			'#type' => 'markup',
-			'#markup' => '<p>'.'<img src="'.url(drupal_get_path('module', 'weixin').'/weixin_100.png').'" align="left" width="100" heigh="125" style="padding: 10px"/>'.t('It seems that you have already bound your account with weixin id.').t('If you want to detach your account, please click following button.').'</p>',
-		);
+		$nickname=db_query('SELECT nickname FROM {users_weixin} WHERE uid=:uid', array(':uid'=>$user->uid))->fetchField();
+		if(empty($nickname))
+			weixin_user_login(array(), $user);
+		$nickname=db_query('SELECT nickname FROM {users_weixin} WHERE uid=:uid', array(':uid'=>$user->uid))->fetchField();
+		if($nickname) {
+			$form['description']=array(
+				'#type' => 'item',
+				'#markup' => t('You are now bound with following weixin account.'),
+			);
+			$form['weixinuser']=array(
+				'#type' => 'item',
+				'#markup' => sprintf('<img src="%s"/>', url('user/'.$user->uid.'/weixin_avatar.jpg')).'<span>'.$nickname.'</span>',
+			);
+		} else {
+			$form['description']=array(
+				'#type' => 'markup',
+				'#markup' => '<p>'.t('It seems that you have already bound your account with weixin id.').t('If you want to detach your account, please click following button.').'</p>',
+			);
+		}
 		$form['submit'] = array(
 			'#type' => 'submit',
 			'#value' => t('Unbound'),
 			'#submit' => array('weixin_user_binding_unbound'),
 		);
 	} else {
-		$result=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE uid=:uid AND expiration_time<:time)',
-			array(':uid'=>$user->uid, ':time'=>time()))->fetchField();
-		if($result) {
-			$seed='';
-			$validationcode='';
-			$allowable_characters = 'ABCEFHIKLMNPQRSTUVWXYZ';
-			do {
-				$seed='';
-				$validationcode='';
-				$len = strlen($allowable_characters) - 1;
-				for($i=0;$i<WEIXIN_SEED_LENGTH;$i++) {
-					$seed.=$allowable_characters[mt_rand(0, $len)];
-					$validationcode.=$allowable_characters[mt_rand(0, $len)];
-				}
-				$r=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE seed=:seed OR validation_code=:code)',
-					array(':seed'=>$seed, ':code'=>$validationcode))->fetchField();
-			} while ($r);
-			db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
-			db_insert('weixin_validation')->fields(array(
-				'uid' => $user->uid,
-				'seed' => $seed,
-				'validation_code' => $validationcode,
-				'expiration_time'=> time()+300,
-			))->execute();
-		}
-		$r=db_query('SELECT * FROM {weixin_validation} WHERE uid=:uid',array(':uid'=>$user->uid))->fetchObject();
-		$seed=$r->seed;
-		$validationcode=$r->validation_code;
+		$form['#attached']['js']=array('function worker() {'.
+			'jQuery.get("'.$GLOBALS['base_path'].'user/'.$user->uid.'/weixin_qrcode_callback", function(data) {'.
+				"if(data=='0') {setTimeout(worker, 5000);}".
+				'else location.reload(true);'.
+				'});'.
+			'} '.
+			'jQuery(document).ready(function() {setTimeout(worker, 5000);});' => array('type'=>'inline'));
 		$form['description']=array(
 			'#type' => 'markup',
-			'#markup' => '<p><img src="'.url(drupal_get_path('module', 'weixin').'/weixin_100.png').'" align="right" width="100" heigh="125" style="padding: 10px"/>'.t('You haven\'t bound your account with weixin id.').t('If you want to bind your account, please do as following.').'</p>',
+			'#markup' => '<p>'.t('You haven\'t bound your account with weixin id.').t('If you want to bind your account, please do as following.').'</p>',
 		);
-		$form['step1']=array(
-			'#type' => 'item',
-			'#title' => '1. '.t('Follow <code>@code</code> in your weixin client',array('@code'=>variable_get('weixinname', ''))),
-			'#description' => '<div><img src="'.url(drupal_get_path('module', 'weixin').'/qrcode.jpg').'" valign="top"/>'.t('Scan this qrcode or search <code>@code</code> in your weixin client.', array('@code'=>variable_get('weixinname', ''))).'</div>',
-		);
-		$form['step2']=array(
-			'#type' => 'textfield',
-			'#size' => 10,
-			'#disabled' => TRUE,
-			'#value' => $seed,
-			'#title' => '2. '.t('Send following code to <code>@code</code>' ,array('@code'=>variable_get('weixinname', ''))),
-			'#description' => t('The code will expire in five minutes. If time passed, please <a href="@url">refresh the page</a>.', array('@url'=>url('user/'.$user->uid.'/weixin'))),
-			'#attributes'=>array('style'=>'font-size: 40px'),
-		);
-		$form['step3']=array(
-			'#type' => 'textfield',
-			'#required' => TRUE,
-			'#size' => 10,
-			'#title' => '3. '.t('Enter the validation code here'),
-			'#description' => t('Input the validation code you received in your weixin client.'),
-			'#attributes'=>array('style'=>'font-size: 40px'),
-			'#maxlength'=>WEIXIN_SEED_LENGTH,
-		);
-		$form['submit'] = array(
-			'#type' => 'submit',
-			'#value' => t('Bind my account'),
-		);
+		$weixin_access_token=_weixin_access_token();
+		if(empty($weixin_access_token)) $showqrcode=FALSE;
+		else {
+			$url=sprintf('https://api.weixin.qq.com/cgi-bin/qrcode/create?access_token=%s',
+				$weixin_access_token);
+			$key=mt_rand(1,pow(2, 31));
+			$param=json_encode(array(
+				'expire_seconds' => 5*60,
+				'action_name' => 'QR_SCENE',
+				'action_info' => array('scene' => array('scene_id' => $key)),
+			));
+			$options = array(
+				'method' => 'POST',
+				'data' => $param,
+			);
+			$q=drupal_http_request($url, $options);
+			if($q->code != '200') $showqrcode=FALSE;
+			else {
+				$resp=json_decode($q->data);
+				if(empty($resp->ticket)) $showqrcode=FALSE;
+				else $showqrcode=TRUE;
+			}
+		}
+		if($showqrcode) {
+			$imgurl=sprintf('https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=%s',
+				urlencode($resp->ticket));
+			$form['qrcode']=array(
+				'#type' => 'markup',
+				'#prefix' => '<div id="weixin_qrcode">',
+				'#markup' => sprintf('<img id="weixin_qrcode" src="%s"/>', $imgurl).
+					sprintf('<img id="weixin_qrcode_phone_scan" '.
+						'src="https://res.wx.qq.com/zh_CN/htmledition/images/login/login_guide17ced3.png">'),
+				'#suffix' => '</div>',
+			);
+			$form['scan']=array(
+				'#type' => 'markup',
+				'#markup' => t('Scan above qrcode to bind your account with !weixinid.', array('!weixinid'=>'<code>'.variable_get('weixinname').'</code>'))
+			);
+			db_merge('weixin_validation')->key(array('uid'=>$user->uid))->fields(array(
+				'uid' => $user->uid,
+				'seed' => $key,
+				'validation_code' => $key,
+				'expiration_time' => time()+5*60,
+			))->execute();
+		} else {
+			$result=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE uid=:uid AND expiration_time<:time)',
+				array(':uid'=>$user->uid, ':time'=>time()))->fetchField();
+			if($result) {
+				$seed='';
+				$validationcode='';
+				$allowable_characters = 'ABCEFHIKLMNPQRSTUVWXYZ';
+				do {
+					$seed='';
+					$validationcode='';
+					$len = strlen($allowable_characters) - 1;
+					for($i=0;$i<WEIXIN_SEED_LENGTH;$i++) {
+						$seed.=$allowable_characters[mt_rand(0, $len)];
+						$validationcode.=$allowable_characters[mt_rand(0, $len)];
+					}
+					$r=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE seed=:seed OR validation_code=:code)',
+						array(':seed'=>$seed, ':code'=>$validationcode))->fetchField();
+				} while ($r);
+				db_delete('weixin_validation')->condition('uid',$user->uid)->execute();
+				db_insert('weixin_validation')->fields(array(
+					'uid' => $user->uid,
+					'seed' => $seed,
+					'validation_code' => $validationcode,
+					'expiration_time'=> time()+300,
+				))->execute();
+			}
+			$r=db_query('SELECT * FROM {weixin_validation} WHERE uid=:uid',array(':uid'=>$user->uid))->fetchObject();
+			$seed=$r->seed;
+			$validationcode=$r->validation_code;
+			$form['step1']=array(
+				'#type' => 'item',
+				'#title' => '1. '.t('Follow <code>@code</code> in your weixin client',array('@code'=>variable_get('weixinname', ''))),
+				'#description' => '<div><img src="'.url(drupal_get_path('module', 'weixin').'/qrcode.jpg').'" valign="top"/>'.t('Scan this qrcode or search <code>@code</code> in your weixin client.', array('@code'=>variable_get('weixinname', ''))).'</div>',
+			);
+			$form['step2']=array(
+				'#type' => 'textfield',
+				'#size' => 10,
+				'#disabled' => TRUE,
+				'#value' => $seed,
+				'#title' => '2. '.t('Send following code to <code>@code</code>' ,array('@code'=>variable_get('weixinname', ''))),
+				'#description' => t('The code will expire in five minutes. If time passed, please <a href="@url">refresh the page</a>.', array('@url'=>url('user/'.$user->uid.'/weixin'))),
+				'#attributes'=>array('style'=>'font-size: 40px'),
+			);
+			$form['step3']=array(
+				'#type' => 'textfield',
+				'#required' => TRUE,
+				'#size' => 10,
+				'#title' => '3. '.t('Enter the validation code here'),
+				'#description' => t('Input the validation code you received in your weixin client.'),
+				'#attributes'=>array('style'=>'font-size: 40px'),
+				'#maxlength'=>WEIXIN_SEED_LENGTH,
+			);
+			$form['submit'] = array(
+				'#type' => 'submit',
+				'#value' => t('Bind my account'),
+			);
+		}
 	}
 	
 	return $form;
@@ -517,27 +723,100 @@ function weixin_user_binding_unbound($form, $form_state) {
 	drupal_set_message(t('Weixin acccount detached.'));
 }
 
+function weixin_user_avatar_access($user) {
+	if(empty($user->uid)) return FALSE;
+	$r=variable_get('weixinappid');
+	if(empty($r)) return FALSE;
+	$r=cache_get('weixin:avatar:'.$user->uid);
+	if(!empty($r->data)) return TRUE;
+	else {
+		$r=db_query('SELECT avatar FROM {users_weixin} WHERE uid=:uid', array(':uid'=>$user->uid))->fetchField();
+		if(empty($r)) return FALSE;
+		cache_set('weixin:avatar:'.$user->uid, $r);
+		return TRUE;
+	}
+}
+
+function weixin_user_avatar($user) {
+	$r=cache_get('weixin:avatar:'.$user->uid);
+	echo $r->data;
+	drupal_add_http_header('Content-type', 'image/jpg; charset=binary', TRUE);
+	drupal_add_http_header('Content-Transfer-Encoding', 'binary', TRUE);
+	exit;
+}
+
+function weixin_user_login($edit, $account) {
+	$openid=db_query('SELECT wx_openid FROM {users_weixin} WHERE uid=:uid and STATUS=1', array(':uid'=>$account->uid))->fetchField();
+	if(empty($openid)) return;
+	$user_info=_weixin_get_user_info($openid);
+	if(empty($user_info)) return;
+	db_update('users_weixin')->condition('uid',$account->uid)->fields(array(
+		'nickname' => $user_info->nickname
+	))->execute();
+	$url=$user_info->headimgurl;
+	$r=drupal_http_request($url);
+	if($r->code!='200') return;
+	db_update('users_weixin')->condition('uid',$account->uid)->fields(array(
+		'avatar' => $r->data
+	))->execute();
+	cache_set('weixin:avatar:'.$account->uid, $r->data);
+}
+
 function weixin_qrcode_callback($user) {
-	$query=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE uid=:uid AND expiration_time<=:time)',
-		array(':uid'=>$user->uid, ':time'=>time()));
+	$query=db_query('SELECT EXISTS(SELECT * FROM {users_weixin} WHERE uid=:uid AND status=1)',
+		array(':uid'=>$user->uid));
 	$r=$query->fetchField();
 	drupal_json_output($r);
 }
 
 function weixin_weixin($request, $user) {
-	// If welcome message should be displayed:
-	if($request->msgtype=='event' && $request->content=='subscribe') {
-		$t=t('Welcome to @sitename. You are talking with robot now.',array('@sitename'=>variable_get('site_name')));
+	if($request->msgtype=='event') {
+		$event=key($request->content);
+		$eventkey=$request->content[$event];
+		// If welcome message should be displayed:
+		if($event=='subscribe') {
+			$t=t('Welcome to @sitename. You are talking with robot now.',array('@sitename'=>variable_get('site_name')));
+			if(!empty($eventkey)) {
+				$scene_id=substr($eventkey, 8);
+				if($uid=db_query('SELECT uid FROM {weixin_validation} WHERE expiration_time>=:time AND seed=:seed',
+					array(':time'=>time(), ':seed'=>$scene_id))->fetchField()) {
+					db_merge('users_weixin')->key(array('uid'=>$uid))->fields(array(
+						'uid' => $uid,
+						'wx_openid' => $request->username,
+						'status' => 1
+					))->execute();
+					db_delete('weixin_validation')->condition('uid',$uid)->execute();
+					$user=user_load($uid);
+					$t.=t('You have now bind with !username.', array('!username'=>format_username($user)));
+				}
+			}
+		}
+		if($event=='unsubscribe') {
+			db_delete('users_weixin')->condition('wx_openid',$request->username)->execute();
+			watchdog('weixin',
+				'User @username unsubscribed the account.',
+				array('@username'=>$user->name),
+				WATCHDOG_DEBUG
+			); 
+		}
+		if($event='scan') {
+			if(!empty($eventkey)) {
+				$scene_id=$eventkey;
+				if($uid=db_query('SELECT uid FROM {weixin_validation} WHERE expiration_time<=:time AND seed=:seed',
+					array(':time'=>time(), ':seed'=>$scene_id))->fetchField()) {
+					db_merge('users_weixin')->key(array('uid'=>$uid))->fields(array(
+						'uid' => $uid,
+						'wx_openid' => $request->username,
+						'status' => 1
+					))->execute();
+					$user=user_load($uid);
+					$t=t('You have now bind with !username.', array('!username'=>$user->name));
+				}
+			}
+		}
 	}
-	// If user unsubscribe the account, then we should remove related records.
-	if($request->msgtype=='event' && $request->content=='unsubscribe') {
-		db_delete('users_weixin')->condition('wx_openid',$request->username)->execute();
-		watchdog('weixin',
-			'User @username unsubscribed the account.',
-			array('@username'=>$user->name),
-			WATCHDOG_DEBUG
-		); 
-	}
+	if(is_array($$request->content)) return;
+
 	$content=trim($request->content);
 	if($request->msgtype=='text' && in_array($content, array('?', "？", t('Help')))) {
 		$t=weixin_help('weixin','weixin');
@@ -583,6 +862,13 @@ function weixin_weixin($request, $user) {
 	if(isset($t)) return $t;
 }
 
+function weixin_weixin_menu() {
+	$menu=array();
+	$menu[]=array('title'=>t('I'), 'weight'=>1);
+	$menu[]=array('title'=>t('Bind / Unbind'), 'weight'=>11);
+	return $menu;
+}
+
 function weixin_is_wechat_browser() {
 	return preg_match('/ MicroMessenger\//', $_SERVER['HTTP_USER_AGENT']);
 }
@@ -596,10 +882,11 @@ function weixin_cron() {
  *   */
 function weixin_uninstall() {
 	$settings=array(
-		'weixinname', 'weixinid', 'weixintoken'
+		'weixinname', 'weixinid', 'weixintoken', 'weixinappid', 'weixinappsecret'
 	);
 	foreach($settings as $s) {
 		variable_del($s);
 	}
+	cache_clear_all('weixin:', 'cache', TRUE);
 }
 
