@@ -619,7 +619,7 @@ function weixin_user_binding($form, $form_state, $user) {
 				'#prefix' => '<div id="weixin_qrcode">',
 				'#markup' => sprintf('<img id="weixin_qrcode" src="%s"/>', $imgurl).
 					sprintf('<img id="weixin_qrcode_phone_scan" '.
-						'src="https://res.wx.qq.com/zh_CN/htmledition/images/login/login_guide17ced3.png">'),
+						'src="%s/qrcode_scan_phone.png">', $GLOBALS['base_path'].drupal_get_path('module', 'weixin')),
 				'#suffix' => '</div>',
 			);
 			db_merge('weixin_validation')->key(array('uid'=>$user->uid))->fields(array(
