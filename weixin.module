@@ -778,6 +778,9 @@ function weixin_qrcode_callback($user) {
 	$query=db_query('SELECT EXISTS(SELECT * FROM {users_weixin} WHERE uid=:uid AND status=1)',
 		array(':uid'=>$user->uid));
 	$r=$query->fetchField();
+	if(empty($r))
+		$r=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE expiration_time<:time AND uid=:uid)',
+			array(':time'=>time(), ':uid'=>$user->uid))->fetchField();
 	drupal_json_output($r);
 }
 
