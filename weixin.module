@@ -601,13 +601,13 @@ function weixin_user_binding($form, $form_state, $user) {
 				else $showqrcode=TRUE;
 			}
 		}
+		$form['#attached']['js']+=array(
+			'jQuery(document).ready(function() {'.
+				'jQuery("div#weixin_qrcode").mouseenter(function() {jQuery("img#weixin_qrcode_phone_scan").fadeIn();});'.
+				'jQuery("div#weixin_qrcode").mouseleave(function() {jQuery("img#weixin_qrcode_phone_scan").fadeOut();});'.
+			'});' => array('type' => 'inline')
+		);
 		if($showqrcode) {
-			$form['#attached']['js']+=array(
-				'jQuery(document).ready(function() {'.
-					'jQuery("div#weixin_qrcode").mouseenter(function() {jQuery("img#weixin_qrcode_phone_scan").fadeIn();});'.
-					'jQuery("div#weixin_qrcode").mouseleave(function() {jQuery("img#weixin_qrcode_phone_scan").fadeOut();});'.
-				'});' => array('type' => 'inline')
-			);
 			$imgurl=sprintf('https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=%s',
 				urlencode($resp->ticket));
 			$form['scan']=array(
@@ -660,7 +660,10 @@ function weixin_user_binding($form, $form_state, $user) {
 			$form['step1']=array(
 				'#type' => 'item',
 				'#title' => '1. '.t('Follow <code>@code</code> in your weixin client',array('@code'=>variable_get('weixinname', ''))),
-				'#description' => '<div><img src="'.url(drupal_get_path('module', 'weixin').'/qrcode.jpg').'" valign="top"/>'.t('Scan this qrcode or search <code>@code</code> in your weixin client.', array('@code'=>variable_get('weixinname', ''))).'</div>',
+				'#description' => '<div id="weixin_qrcode">'.
+					'<img id="weixin_qrcode" src="'.url(drupal_get_path('module', 'weixin').'/qrcode.jpg').'" />'.
+					sprintf('<img id="weixin_qrcode_phone_scan" '.
+						'src="%s/qrcode_scan_phone.png"/></div>', $GLOBALS['base_path'].drupal_get_path('module', 'weixin')),
 			);
 			$form['step2']=array(
 				'#type' => 'textfield',
