@@ -1,0 +1,365 @@
+# $Id$
+#
+# Chinese, Simplified translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  weixin.module: n/a
+#  weixin.install: n/a
+#  weixin.info: n/a
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2013-12-04 06:39+0800\n"
+"PO-Revision-Date: 2013-12-04 06:39+0800\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: Chinese, Simplified <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+#: weixin.module:175
+msgid "In this page, you could set various settings regarding weixin public platform."
+msgstr "您可以在此页面中设置有关微信公共平台接口的有关内容。"
+
+#: weixin.module:178
+msgid "In this page, you could bind your account with a weixin id, or detach your account from existing weixin id."
+msgstr "您可以在此页面中将账户与微信ID绑定，或者解绑。"
+
+#: weixin.module:182;792
+msgid "Welcome to @sitename. You are talking with robot now."
+msgstr "欢迎访问@sitename。现在是机器人与您对话。"
+
+#: weixin.module:183
+msgid "You may send following instructions to interact with the robot."
+msgstr "您可发送下列指令与机器人互动。"
+
+#: weixin.module:198
+msgid "Allow binding with weixin account"
+msgstr "允许与微信账户绑定"
+
+#: weixin.module:290
+msgid "Site global weixin account name"
+msgstr "网站所对应的微信账户名"
+
+#: weixin.module:291
+msgid "Weixin account name to display in binding page."
+msgstr "在绑定页面中显示给用户的微信账户名称"
+
+#: weixin.module:300
+msgid "Site global weixin id"
+msgstr "网站响应的微信ID"
+
+#: weixin.module:301
+msgid "Messages sent to other weixinid will be ignored automatically."
+msgstr "发送给其它微信ID的消息将会被自动忽略。"
+
+#: weixin.module:310
+msgid "Token"
+msgstr "Token"
+
+#: weixin.module:311
+msgid "The token set in weixin public platform."
+msgstr "在微信公众平台上设置的token。"
+
+#: weixin.module:317
+msgid "AppID"
+msgstr "AppID"
+
+#: weixin.module:318
+msgid "The appid given by weixin public platform."
+msgstr "微信公众平台指派的 AppID。"
+
+#: weixin.module:323
+msgid "AppSecret"
+msgstr "AppSecret"
+
+#: weixin.module:324
+msgid "The app secret given by weixin public platform."
+msgstr "微信公众平台指派的 AppSecret。"
+
+#: weixin.module:337
+msgid "AppSecret cannot be empty if appid is set."
+msgstr "如果设置了 AppId，则必须设置 AppID。"
+
+#: weixin.module:344
+msgid "There are communication error now, please try again later."
+msgstr "目前有通讯故障，请稍后再试。"
+
+#: weixin.module:348
+msgid "There appid or appsecret is invalid."
+msgstr "AppID 或 AppSecret 无效。"
+
+#: weixin.module:412
+msgid "Customized menu delete failed: !errcode @errmsg"
+msgstr "自定义菜单删除失败：!errcode @errmsg"
+
+#: weixin.module:426
+msgid "Customized menu set failed: !errcode @errmsg"
+msgstr "自定义菜单设置失败：!errcode @errmsg"
+
+#: weixin.module:429
+msgid "Customized menu set."
+msgstr "自定义菜单已设置。"
+
+#: weixin.module:506
+msgid "Hello @username."
+msgstr "你好，@username。"
+
+#: weixin.module:506
+msgid "Sorry, but I cannot understand what you are taking about."
+msgstr "抱歉，机器人目前理解不了你所说的话。"
+
+#: weixin.module:506
+msgid "Please send ? to list all the instructions."
+msgstr "发送 ? 可列出全部指令。"
+
+#: weixin.module:552
+msgid "You are now bound with following weixin account."
+msgstr "您现在已与微信账户绑定。"
+
+#: weixin.module:561
+msgid "It seems that you have already bound your account with weixin id."
+msgstr "您的账户已经与微信账户绑定。"
+
+#: weixin.module:561
+msgid "If you want to detach your account, please click following button."
+msgstr "如果您想要将账户解绑，请点击下面的按钮。"
+
+#: weixin.module:566;862
+msgid "Unbound"
+msgstr "解除绑定"
+
+#: weixin.module:579
+msgid "You haven't bound your account with weixin id."
+msgstr "您尚未将账户与微信账户绑定。"
+
+#: weixin.module:579
+msgid "If you want to bind your account, please do as following."
+msgstr "如果您想要将账户与微信账户绑定，请按如下步骤操作。"
+
+#: weixin.module:615
+msgid "Scan following qrcode to bind your account with !weixinid."
+msgstr "扫描下面的二维码可将您的账户与 !weixinid 绑定。"
+
+#: weixin.module:662
+msgid "Follow <code>@code</code> in your weixin client"
+msgstr "在您的微信客户端关注 <code>@code</code>"
+
+#: weixin.module:663
+msgid "Scan this qrcode or search <code>@code</code> in your weixin client."
+msgstr ""
+"您可在微信客户端扫描此二维码或在添加好友时搜索 "
+"<code>@code</code>。"
+
+#: weixin.module:670
+msgid "Send following code to <code>@code</code>"
+msgstr "将下列代码发送至 <code>@code</code>"
+
+#: weixin.module:671
+msgid "The code will expire in five minutes. If time passed, please <a href=\"@url\">refresh the page</a>."
+msgstr ""
+"以上代码将在五分钟后自动过期。如果时间已过，请<a "
+"href=\"@url\">刷新页面</a>。"
+
+#: weixin.module:678
+msgid "Enter the validation code here"
+msgstr "在此输入您收到的校验码"
+
+#: weixin.module:679
+msgid "Input the validation code you received in your weixin client."
+msgstr "输入您在微信客户端中收到的校验码。"
+
+#: weixin.module:685
+msgid "Bind my account"
+msgstr "绑定我的账户"
+
+#: weixin.module:698
+msgid "It seems that you have not send the message to our weixina public account."
+msgstr "貌似您还没有向我们的公众账号发送消息。"
+
+#: weixin.module:708
+msgid "The validation code you have entered is wrong."
+msgstr "您输入的验证码不对。"
+
+#: weixin.module:725
+msgid "Weixin acccount bound successfully."
+msgstr "微信账户绑定成功。"
+
+#: weixin.module:735
+msgid "Weixin acccount detached."
+msgstr "已解除微信账户的绑定。"
+
+#: weixin.module:804;827
+msgid "You have now bind with !username."
+msgstr "您现在已与 !username 绑定。"
+
+#: weixin.module:835
+msgid "Help"
+msgstr "帮助"
+
+#: weixin.module:847
+msgid "Sorry, you have already registered with another account at @sitename."
+msgstr "抱歉，您在@sitename上已经绑定了其它账户。"
+
+#: weixin.module:849
+msgid "The code you have entered has expired. Please fresh the page."
+msgstr "您输入的代码已过期，请刷新网站页面。"
+
+#: weixin.module:851
+msgid "Your validation code is @code, please input it at website."
+msgstr "您的验证码是 @code，请在网站中输入。"
+
+#: weixin.module:865
+msgid "@username has been unbound with your weixin account."
+msgstr "@username 已与您的微信账户解除绑定。"
+
+#: weixin.module:872
+msgid "You haven't bound your weixin account yet."
+msgstr "您尚未与微信账户绑定。"
+
+#: weixin.module:881
+msgid "I"
+msgstr "我"
+
+#: weixin.module:882
+msgid "Bind / Unbind"
+msgstr "绑定 / 解除绑定"
+
+#: weixin.module:469;511;720;730;810;866;215
+msgid "weixin"
+msgstr "微信"
+
+#: weixin.module:469
+msgid "Site connected with weixin public platform via @wxid (token @token)."
+msgstr "网站已与微信公众平台 @wxid 连接(token 为 @token)。"
+
+#: weixin.module:511
+msgid "Recieved id @content and returned id @response."
+msgstr "收到了 @content 返回了 @response。"
+
+#: weixin.module:720
+msgid "@username bound his account with weixin id @wxid."
+msgstr "@username 将账户与微信ID @wxid 进行了绑定。"
+
+#: weixin.module:730
+msgid "@user detached his weixin account."
+msgstr "@user 解除了微信账户的绑定。"
+
+#: weixin.module:810
+msgid "User @username unsubscribed the account."
+msgstr "用户 @username 退粉了。"
+
+#: weixin.module:866
+msgid "@username unbound his account with weixin."
+msgstr "@username 将其账户与微信解除绑定。"
+
+#: weixin.module:208
+msgid "weixin rules"
+msgstr "微信规则"
+
+#: weixin.module:209
+msgid "weixin configuration and customized rules for response."
+msgstr "微信公众平台配置，及响应所需的自定义规则。"
+
+#: weixin.module:216
+msgid "weixin interface"
+msgstr "微信接口"
+
+#: weixin.module:222
+msgid "Weixin binding"
+msgstr "微信绑定"
+
+#: weixin.install:18
+msgid "Provides binding information between users and weixin openid"
+msgstr "提供将用户与微信 openid 绑定的信息"
+
+#: weixin.install:23;60
+msgid "Primary Key: Unique user ID."
+msgstr "主键：唯一的用户ID。"
+
+#: weixin.install:29
+msgid "Unique Key: weixin_openid."
+msgstr "唯一键：微信 openid。"
+
+#: weixin.install:55
+msgid "Provides temporary information when binding users and weixin openid"
+msgstr "提供用户与微信绑定时的临时信息"
+
+#: weixin.install:66
+msgid "Unique Key: seed to display on the web."
+msgstr ""
+
+#: weixin.install:72
+msgid "Unique Key: validation code to match."
+msgstr ""
+
+#: weixin.install:76
+msgid "The expiration time of current seed."
+msgstr ""
+
+#: weixin.install:93
+msgid "Provides customized rules to response weixin request"
+msgstr ""
+
+#: weixin.install:98
+msgid "Unique Key: the id of specific rule."
+msgstr ""
+
+#: weixin.install:104
+msgid "regexp rules to match."
+msgstr ""
+
+#: weixin.install:110
+msgid "When corresponding rule be match, return relative response."
+msgstr ""
+
+#: weixin.install:116
+msgid "Index Key: weight of specific rule."
+msgstr ""
+
+#: weixin.install:126
+msgid "Provides weixin logging feature"
+msgstr ""
+
+#: weixin.install:132
+msgid "Unique Key: the id of log."
+msgstr ""
+
+#: weixin.install:138
+msgid "Unique key: reference id (upstream or local id)."
+msgstr ""
+
+#: weixin.install:144
+msgid "Message direction: income, outcome or massive pushing."
+msgstr ""
+
+#: weixin.install:150
+msgid "The opposite of the message."
+msgstr ""
+
+#: weixin.install:155
+msgid "The timestamp of the message."
+msgstr ""
+
+#: weixin.install:160
+msgid "The last message of the conversation."
+msgstr ""
+
+#: weixin.install:166
+msgid "The content of message."
+msgstr "消息内容"
+
+#: weixin.info:0
+msgid "Weixin Response"
+msgstr "微信响应"
+
+#: weixin.info:0
+msgid "Provides features interacting with weixin public open platform."
+msgstr "提供与微信公众平台交互的接口。"
+
+#: weixin.info:0
+msgid "Weixin"
+msgstr "微信"
+
