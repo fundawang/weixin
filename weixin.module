@@ -629,9 +629,9 @@ function weixin_user_binding($form, $form_state, $user) {
 				'expiration_time' => time()+5*60,
 			))->execute();
 		} else {
-			$result=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE uid=:uid AND expiration_time<:time)',
+			$result=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE uid=:uid AND expiration_time>:time)',
 				array(':uid'=>$user->uid, ':time'=>time()))->fetchField();
-			if($result) {
+			if(empty($result)) {
 				$seed='';
 				$validationcode='';
 				$allowable_characters = 'ABCEFHIKLMNPQRSTUVWXYZ';
@@ -775,9 +775,8 @@ function weixin_user_login($edit, $account) {
 }
 
 function weixin_qrcode_callback($user) {
-	$query=db_query('SELECT EXISTS(SELECT * FROM {users_weixin} WHERE uid=:uid AND status=1)',
-		array(':uid'=>$user->uid));
-	$r=$query->fetchField();
+	$r=db_query('SELECT EXISTS(SELECT * FROM {users_weixin} WHERE uid=:uid AND status=1)',
+		array(':uid'=>$user->uid))->fetchField();
 	if(empty($r))
 		$r=db_query('SELECT EXISTS(SELECT * FROM {weixin_validation} WHERE expiration_time<:time AND uid=:uid)',
 			array(':time'=>time(), ':uid'=>$user->uid))->fetchField();
