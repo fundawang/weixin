@@ -181,7 +181,7 @@ msgstr "貌似您还没有向我们的公众账号发送消息。"
 
 #: weixin.module:708
 msgid "The validation code you have entered is wrong."
-msgstr "您输入的验证码不对。"
+msgstr "您输入的校验码不对。"
 
 #: weixin.module:725
 msgid "Weixin acccount bound successfully."
@@ -209,7 +209,7 @@ msgstr "您输入的代码已过期，请刷新网站页面。"
 
 #: weixin.module:851
 msgid "Your validation code is @code, please input it at website."
-msgstr "您的验证码是 @code，请在网站中输入。"
+msgstr "您的校验码是 @code，请在网站中输入。"
 
 #: weixin.module:865
 msgid "@username has been unbound with your weixin account."
