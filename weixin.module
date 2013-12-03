@@ -680,7 +680,7 @@ function weixin_user_binding($form, $form_state, $user) {
 				'#size' => 10,
 				'#title' => '3. '.t('Enter the validation code here'),
 				'#description' => t('Input the validation code you received in your weixin client.'),
-				'#attributes'=>array('style'=>'font-size: 40px'),
+				'#attributes'=>array('style'=>'font-size: 40px; text-transform: uppercase; ime-mode: disabled; -webkit-ime-mode: disabled;'),
 				'#maxlength'=>WEIXIN_SEED_LENGTH,
 			);
 			$form['submit'] = array(
@@ -700,17 +700,12 @@ function weixin_user_binding_validate($form, &$form_state) {
 		if(!$result) {
 			form_set_error('step3', t('It seems that you have not send the message to our weixina public account.')); return;
 		}
-		$query=db_select('weixin_validation','w')->condition('seed',$form_state['values']['step2'])->fields('w');
-		$result=$query->execute();
-		switch($result->rowCount()) {
-			case 0:
-				$form_state['rebuild']=true; break;
-			case 1:
-				$r=$result->fetchObject();
-				if($r->validation_code != strtoupper($form_state['values']['step3'])) {
-					form_set_error('step3', t('The validation code you have entered is wrong.')); break;
-				}
-		}
+		$result=db_query('SELECT validation_code FROM {weixin_validation} WHERE seed=:seed', array(':seed'=>$form_state['values']['step2']))
+			->fetchField();
+		if(empty($result))
+			$form_state['rebuild']=TRUE;
+		else if ($result != strtoupper($form_state['values']['step3']))
+			form_set_error('step3', t('The validation code you have entered is wrong.'));
 	}
 }
 
