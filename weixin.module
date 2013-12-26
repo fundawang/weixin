@@ -54,6 +54,9 @@ class WechatRequest
 				case 'text':
 					$this->content = trim((string)$postObj->Content);
 					break;
+				case 'voice':
+					$this->content = trim((string)$postObj->Recognition);
+					break;
 				case 'event':
 					$this->content = array(
 						(string)$postObj->Event => (string)$postObj->EventKey
