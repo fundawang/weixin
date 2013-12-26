@@ -401,7 +401,13 @@ function weixin_admin_form_submit($form, $form_state) {
 			);
 		}
 	}
-	$menu=sprintf('{"button":%s}',json_encode($weixin_menu_export));
+	if( version_compare(phpversion(), '5.4.0') < 0 ) {
+		$code=json_encode($weixin_menu_export);
+		$code=preg_replace_callback('/\\\\u([0-9a-f]{4})/i', function($matches) { return mb_convert_encoding(pack('H*', $matches[1]), 'UTF-8', 'UTF-16'); }, $code); 
+	} else
+		$code=json_encode($output, JSON_UNESCAPED_UNICODE);
+
+	$menu=sprintf('{"button":%s}',$code);
 	$access_token=_weixin_access_token();
 
 	$url=sprintf('https://api.weixin.qq.com/cgi-bin/menu/delete?access_token=%s', $access_token);
@@ -473,11 +479,11 @@ function weixin_response() {
 		);
 		drupal_add_http_header('Content-Type', 'text/plain; charset=utf-8');
 		echo $_GET['echostr'];
-		drupal_exit();
+		exit;
 	}
 	
 	// Fill up relative structure
-	if(!$request->username) drupal_exit();
+	if(!$request->username) exit();
 	if($request->msgid) {
 		$r=db_select('weixin_log','l')->condition('l.refid',$request->msgid)->condition('l.direction',WEIXIN_DIRECTION_INCOME)->fields('l')->execute();
 		if($r->rowCount()) drupal_exit();
@@ -514,7 +520,7 @@ function weixin_response() {
 		WATCHDOG_DEBUG
 	);
 	echo $resp;
-	drupal_exit();
+	exit();
 }
 
 function weixin_response_access() {
