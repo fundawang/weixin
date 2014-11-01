@@ -343,6 +343,8 @@ function weixin_name_fake_exists($value) {
 }
 
 function weixin_admin_form_validate($form, $form_state) {
+	if(empty($form_state['values']['weixinappid']) && !empty($form_state['values']['weixinaeskey']))
+		form_set_error('weixinaeskey', t('AppID cannot be empty if aeskey is set.'));
 	if(!empty($form_state['values']['weixinappid'])) {
 		if(empty($form_state['values']['weixinappsecret']))
 			form_set_error('weixinappsecret', t('AppSecret cannot be empty if appid is set.'));
@@ -365,7 +367,6 @@ function weixin_admin_form_validate($form, $form_state) {
 			}
 		}
 	}
-
 }
 
 function weixin_admin_form_submit($form, $form_state) {
