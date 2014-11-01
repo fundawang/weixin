@@ -585,10 +585,16 @@ function weixin_user_binding($form, $form_state, $user) {
 				'#type' => 'item',
 				'#markup' => t('You are now bound with following weixin account.'),
 			);
-			$form['weixinuser']=array(
-				'#type' => 'item',
-				'#markup' => sprintf('<img src="%s"/>', url('user/'.$user->uid.'/weixin_avatar.jpg')).'<span>'.$nickname.'</span>',
-			);
+			if(weixin_user_avatar_access($user))
+				$form['weixinuser']=array(
+					'#type' => 'item',
+					'#markup' => sprintf('<img src="%s"/>', url('user/'.$user->uid.'/weixin_avatar.jpg')).'<span>'.$nickname.'</span>',
+				);
+			else 
+				$form['weixinuser']=array(
+					'#type' => 'item',
+					'#markup' => '<span>'.$nickname.'</span>',
+				);
 		} else {
 			$form['description']=array(
 				'#type' => 'markup',
@@ -765,6 +771,16 @@ function weixin_user_binding_unbound($form, $form_state) {
 		WATCHDOG_INFO
 	);
 	drupal_set_message(t('Weixin acccount detached.'));
+
+	$r=variable_get('weixinappid');
+	if(!empty($r))
+		weixin_template_message($form['#user'], 'Iu3riY__2_Tif-chv15AzbiQTk2xcJIwiwJjzlgeS-8', array(
+			'first' => array('value'=>t('Weixin acccount detached with @sitename.', array('@sitename'=>variable_get('site_name')))),
+			'keyword1' => array('value'=>$form['#user']),
+			'keyword2' => array('value'=>format_date(time())),
+			'keyword3' => array('value'=>t('QR Code scanning')),
+			'remark' => array('value'=>t('If you want to bind your weixin account again, please re-scan the qrcode on the website.')),
+		));
 }
 
 function weixin_user_avatar_access($user) {
@@ -799,7 +815,9 @@ function weixin_user_login($edit, $account) {
 	))->execute();
 	$url=$user_info->headimgurl;
 	$r=drupal_http_request($url);
+
 	if($r->code!='200') return;
+
 	db_update('users_weixin')->condition('uid',$account->uid)->fields(array(
 		'avatar' => $r->data
 	))->execute();
@@ -821,6 +839,7 @@ function weixin_weixin($request, $user) {
 		$eventkey=$request->content[$event];
 		$event=strtolower($event);
 		// If welcome message should be displayed:
+		if($event=='templatesendjobfinish') exit;
 		if($event=='subscribe') {
 			$t=t('Welcome to @sitename. You are talking with robot now.',array('@sitename'=>variable_get('site_name')));
 			if(!empty($eventkey)) {
@@ -924,6 +943,19 @@ function weixin_is_wechat_browser() {
 
 function weixin_cron() {
 	db_delete('weixin_validation')->condition('expiration_time',time(),'<')->execute();
+}
+
+function weixin_template_message($user, $template_id, $data) {
+	$wx_openid=db_query('SELECT wx_openid FROM {users_weixin} WHERE uid=:uid', array(':uid'=>$user->uid))->fetchField();
+	if(empty($wx_openid)) return;
+	$url=sprintf('https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=%s', _weixin_access_token());
+	$postObj=new stdClass();
+	$postObj->touser=$user;
+	$postObj->template_id=$template_id;
+	$postObj->data=$data;
+	$postData=json_encode($postObj);
+	$r=drupal_http_request($url, array('method'=>'POST', 'data'=>$postData));
+	return $r->data;
 }
 
 /**
