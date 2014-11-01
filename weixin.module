@@ -32,9 +32,9 @@ class WechatRequest
 		}
 	}
 	private function checkSignature($token, $get) {
-		$signature = isset($get['signature'])?'':$get['signature'];
-		$timestamp = isset($get["timestamp"])?'':$get["timestamp"];
-		$nonce = isset($get["nonce"])?'':$get["nonce"];
+		$signature = isset($get['signature'])?$get['signature']:'';
+		$timestamp = isset($get["timestamp"])?$get["timestamp"]:'';
+		$nonce = isset($get["nonce"])?$get["nonce"]:'';
 		$tmpArr = array($token, $timestamp, $nonce);
 		asort($tmpArr, SORT_STRING);
 		$tmpStr = implode( $tmpArr );
