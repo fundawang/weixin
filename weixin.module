@@ -4,6 +4,8 @@
  * This file is licensed under GPLv2+.
 */
 
+include_once(DRUPAL_ROOT . '/' . drupal_get_path('module', 'weixin') . '/wxBizMsgCrypt.php');
+
 /**
  * @file
  * Provides features interacting with weixin public open platform.
@@ -12,6 +14,8 @@
 define("WEIXIN_SEED_LENGTH",8);
 define("WEIXIN_DIRECTION_INCOME",1);
 define("WEIXIN_DIRECTION_OUTCOME",2);
+
+global $fp;
 
 
 // Define weixin classes
@@ -24,14 +28,15 @@ class WechatRequest
 	public $msgtype = NULL;
 	public $content = NULL;
 	private $rawinput = NULL;
+	private $pc;
 	
 	public function __construct($token, $args, $wxid, $post=NULL) {
-		if($this->checkSignature($token, $args)) {
+		if(!empty($args['bypasscheck']) || $this->checkSignature($token, $args, $post)) {
 			$this->wxid=$wxid;
-			if(!empty($post)) $this->pharsePost($post);
+			if(!empty($post)) $this->pharsePost($args, $post);
 		}
 	}
-	private function checkSignature($token, $get) {
+	private function checkSignature($token, $get, $post) {
 		$signature = isset($get['signature'])?$get['signature']:'';
 		$timestamp = isset($get["timestamp"])?$get["timestamp"]:'';
 		$nonce = isset($get["nonce"])?$get["nonce"]:'';
@@ -39,13 +44,24 @@ class WechatRequest
 		asort($tmpArr, SORT_STRING);
 		$tmpStr = implode( $tmpArr );
 		$tmpStr = sha1( $tmpStr );
-		if( $tmpStr == $signature ) return TRUE;
-		else return FALSE;
+		if( $tmpStr !== $signature ) return FALSE;
+		if(!empty($get['encrypt_type']) && $get['encrypt_type']=='aes') {
+			$pc = new WXBizMsgCrypt($token, variable_get('weixinaeskey', ''), variable_get('weixinappid', ''));
+			$msg = '';
+			$errCode = $pc->decryptMsg($get['msg_signature'], $timestamp, $nonce, $post, $msg);
+			return $errCode == 0;
+		}
+		return TRUE;
 	}
 	
-	private function pharsePost($post) {
+	private function pharsePost($get, $post) {
+		if(!empty($pc)) {
+			$msg = '';
+			$errCode = $pc->decryptMsg($get['msg_signature'], $get["timestamp"], $get["nonce"], $post, $msg);
+			$post = $msg;
+		}
 		$postObj = simplexml_load_string($post, 'SimpleXMLElement', LIBXML_NOCDATA);
-		if($postObj!= FALSE && $this->wxid == $postObj->ToUserName) {
+		if($postObj!== FALSE && $this->wxid == $postObj->ToUserName) {
 			$this->rawinput = (string)$post;
 			$this->username = (string)$postObj->FromUserName;
 			if(property_exists($postObj, 'MsgId')) $this->msgid = (string)$postObj->MsgId;
@@ -803,6 +819,7 @@ function weixin_weixin($request, $user) {
 	if($request->msgtype=='event') {
 		$event=key($request->content);
 		$eventkey=$request->content[$event];
+		$event=strtolower($event);
 		// If welcome message should be displayed:
 		if($event=='subscribe') {
 			$t=t('Welcome to @sitename. You are talking with robot now.',array('@sitename'=>variable_get('site_name')));
@@ -818,6 +835,7 @@ function weixin_weixin($request, $user) {
 					db_delete('weixin_validation')->condition('uid',$uid)->execute();
 					$user=user_load($uid);
 					$t.=t('You have now bind with !username.', array('!username'=>format_username($user)));
+					return $t;
 				}
 			}
 		}
@@ -827,12 +845,13 @@ function weixin_weixin($request, $user) {
 				'User @username unsubscribed the account.',
 				array('@username'=>$user->name),
 				WATCHDOG_DEBUG
-			); 
+			);
+			return;
 		}
-		if($event='scan') {
+		if($event=='scan') {
 			if(!empty($eventkey)) {
 				$scene_id=$eventkey;
-				if($uid=db_query('SELECT uid FROM {weixin_validation} WHERE expiration_time<=:time AND seed=:seed',
+				if($uid=db_query('SELECT uid FROM {weixin_validation} WHERE expiration_time>=:time AND seed=:seed',
 					array(':time'=>time(), ':seed'=>$scene_id))->fetchField()) {
 					db_merge('users_weixin')->key(array('uid'=>$uid))->fields(array(
 						'uid' => $uid,
@@ -840,12 +859,12 @@ function weixin_weixin($request, $user) {
 						'status' => 1
 					))->execute();
 					$user=user_load($uid);
-					$t=t('You have now bind with !username.', array('!username'=>$user->name));
+					$t=t('You have now bind with !username.', array('!username'=>format_username($user)));
+					return $t;
 				}
 			}
 		}
 	}
-	if(is_array($$request->content)) return;
 
 	$content=trim($request->content);
 	if($request->msgtype=='text' && in_array($content, array('?', "？", t('Help')))) {
