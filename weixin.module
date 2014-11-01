@@ -327,6 +327,14 @@ function weixin_admin_form($form, $form_state) {
 		'#description' => t('The app secret given by weixin public platform.'),
 		'#default_value' => variable_get('weixinappsecret', ''),
 	);
+	$form['weixinaeskey'] = array(
+		'#type' => 'textfield',
+		'#title' => 'EncodingAESKey',
+		'#size' => 80,
+		'#max_length' => 43,
+		'#description' => t('The EncodingAESKey set in weixin public platform.'),
+		'#default_value' => variable_get('weixinaeskey', ''),
+	);
 	return system_settings_form($form);
 }
 
@@ -362,7 +370,7 @@ function weixin_admin_form_validate($form, $form_state) {
 
 function weixin_admin_form_submit($form, $form_state) {
 	$settings=array(
-		'weixinname', 'weixinid', 'weixintoken', 'weixinappid', 'weixinappsecret'
+		'weixinname', 'weixinid', 'weixintoken', 'weixinappid', 'weixinappsecret', 'weixinaeskey'
 	);
 	foreach($settings as $s) {
 		variable_set($s, $form_state['values'][$s]);
@@ -484,7 +492,7 @@ function weixin_response() {
 		echo $_GET['echostr'];
 		exit;
 	}
-	
+
 	// Fill up relative structure
 	if(!$request->username) exit();
 	if($request->msgid) {
@@ -903,7 +911,7 @@ function weixin_cron() {
  *   */
 function weixin_uninstall() {
 	$settings=array(
-		'weixinname', 'weixinid', 'weixintoken', 'weixinappid', 'weixinappsecret'
+		'weixinname', 'weixinid', 'weixintoken', 'weixinappid', 'weixinappsecret', 'weixinaeskey'
 	);
 	foreach($settings as $s) {
 		variable_del($s);
