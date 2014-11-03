@@ -760,10 +760,14 @@ function weixin_user_binding_submit($form, &$form_state) {
 		array('@username'=>$form['#user']->name, '@wxid'=>$r),
 		WATCHDOG_INFO
 	);
+	user_set_authmaps($form['#user'], array("authname_weixin" => 'weixin_openid_'.$r));
 	drupal_set_message(t('Weixin acccount bound successfully.'));
 }
 
 function weixin_user_binding_unbound($form, $form_state) {
+	$r=db_query('SELECT wx_openid FROM {users_weixin} WHERE uid=:uid',array(':uid'=>$form['#user']->uid))->fetchField();
+	user_set_authmaps($form['#user'], array("authname_weixin" => ''));
+
 	db_delete('users_weixin')->condition('uid',$form['#user']->uid)->execute();
 	watchdog('weixin',
 		'@user detached his weixin account.',
