@@ -513,7 +513,7 @@ function weixin_response() {
 	// Fill up relative structure
 	if(!$request->username) exit();
 	if($request->msgid) {
-		$r=db_select('weixin_log','l')->condition('l.refid',$request->msgid)->condition('l.direction',WEIXIN_DIRECTION_INCOME)->fields('l')->execute();
+		$r=db_query('SELECT * FROM {weixin_log} WHERE refid=:refid AND direction=:direction',array(':refid'=>$request->msgid, ':direction'=>WEIXIN_DIRECTION_INCOME));
 		if($r->rowCount()) drupal_exit();
 	}
 	
@@ -537,7 +537,11 @@ function weixin_response() {
 	if($resptype=='text')
 		$result=implode($result, '\n');
 	drupal_add_http_header('Content-Type', 'application/xml; charset=utf-8');
-	if(empty($result)) $result=(($user->uid)?t('Hello @username.',array('@username'=>$user->name)):'').'/:--b'.t('Sorry, but I cannot understand what you are taking about.').t('Please send ? to list all the instructions.');
+	if(empty($result)) {
+		$result=(($user->uid)?t('Hello @username.',array('@username'=>format_username($user))):'').'/:--b'.t('Sorry, but I cannot understand what you are taking about.');
+		$r=variable_get('weixinappid');
+		if(empty($r)) t('Please send ? to list all the instructions.');
+	}
 
 	$resp=new WechatResponse($request);
 	call_user_func(array($resp, $resptype), $result);
@@ -887,6 +891,20 @@ function weixin_weixin($request, $user) {
 				}
 			}
 		}
+		if($event=='click') {
+			$t=NULL;
+			switch($eventkey) {
+				case 'weixin_menu_11':
+					break;
+				case 'weixin_menu_12':
+					if($user->uid)
+						$t=t('Click <a href="@url">here</a> to reset your password.', array('@url'=>url('user/password', array('absolute'=>TRUE))));
+					else
+						$t=t('You have not bound your wexin account with @sitename yet.', array('@sitename'=>variable_get('site_name')));
+					break;
+			}
+			return $t;
+		}
 	}
 
 	$content=trim($request->content);
@@ -936,8 +954,9 @@ function weixin_weixin($request, $user) {
 
 function weixin_weixin_menu() {
 	$menu=array();
-	$menu[]=array('title'=>t('I'), 'weight'=>1);
-	$menu[]=array('title'=>t('Bind / Unbind'), 'weight'=>11);
+	$menu[]=array('title'=>t('My account'), 'weight'=>1);
+	$menu[]=array('title'=>t('Bind / Unbound'), 'weight'=>11);
+	$menu[]=array('title'=>t('Reset password'), 'weight'=>12);
 	return $menu;
 }
 
