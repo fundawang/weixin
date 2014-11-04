@@ -224,7 +224,7 @@ function weixin_permission() {
  */
 function weixin_menu() {
 	$items['admin/config/services/weixin'] = array(
-		'title' => 'weixin rules',
+		'title' => 'weixin settings',
 		'description' => 'weixin configuration and customized rules for response.',
 		'access arguments' => array('access administration pages'),
 		'page callback' => 'drupal_get_form',
