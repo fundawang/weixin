@@ -981,6 +981,24 @@ function weixin_template_message($user, $template_id, $data) {
 	return $r->data;
 }
 
+function weixin_shortenurl($longurl) {
+	$appid=variable_get('weixinappid', '');
+	if(empty($appid)) return false;
+	$longurl=url($longurl, array('absolute'=>TRUE));
+	$url=sprintf('https://api.weixin.qq.com/cgi-bin/shorturl?access_token=%s', _weixin_access_token());
+	$postObj=new stdClass();
+	$postObj->action='long2short';
+	$postObj->long_url=$longurl;
+	$postData=json_encode($postObj);
+	$r=drupal_http_request($url, array('method'=>'POST', 'data'=>$postData));
+	$t=json_decode($r->data);
+	if($r->code !='200' || $t->errcode != 0) {
+		return false;
+	}
+	else 
+		return $t->short_url;
+}
+
 /**
  *  * Implementation of hook_uninstall().
  *   */
