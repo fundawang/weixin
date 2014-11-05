@@ -351,6 +351,11 @@ function weixin_admin_form($form, $form_state) {
 		'#description' => t('The EncodingAESKey set in weixin public platform.'),
 		'#default_value' => variable_get('weixinaeskey', ''),
 	);
+	$form['updatemenu'] = array(
+		'#type' => 'checkbox',
+		'#title' => t('Refresh customized menu'),
+		'#description' => t('Check to refresh the customized menu of weixin public platform account.'),
+	);
 	return system_settings_form($form);
 }
 
@@ -396,7 +401,7 @@ function weixin_admin_form_submit($form, $form_state) {
 		variable_del('weixinaccess_token');
 	}
 
-	if(empty($form_state['values']['weixinappid'])) return;
+	if(empty($form_state['values']['weixinappid']) || $form_state['values']['updatemenu']) return;
 	$menus=module_invoke_all('weixin_menu');
 	$weixin_menu=array();
 	foreach($menus as $menuitem) {
