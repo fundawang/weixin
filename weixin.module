@@ -859,14 +859,18 @@ function weixin_weixin($request, $user) {
 				$scene_id=substr($eventkey, 8);
 				if($uid=db_query('SELECT uid FROM {weixin_validation} WHERE expiration_time>=:time AND seed=:seed',
 					array(':time'=>time(), ':seed'=>$scene_id))->fetchField()) {
-					db_merge('users_weixin')->key(array('uid'=>$uid))->fields(array(
-						'uid' => $uid,
-						'wx_openid' => $request->username,
-						'status' => 1
-					))->execute();
-					db_delete('weixin_validation')->condition('uid',$uid)->execute();
-					$user=user_load($uid);
-					$t.=t('You have now bind with !username.', array('!username'=>format_username($user)));
+					if($uid<>$user->uid) {
+						$t=t('You have already bound with !username.', array('!username'=>format_username($user)));
+					} else {
+						db_merge('users_weixin')->key(array('uid'=>$uid))->fields(array(
+							'uid' => $uid,
+							'wx_openid' => $request->username,
+							'status' => 1
+						))->execute();
+						db_delete('weixin_validation')->condition('uid',$uid)->execute();
+						$user=user_load($uid);
+						$t.=t('You have now bind with !username.', array('!username'=>format_username($user)));
+					}
 					return $t;
 				}
 			}
@@ -885,13 +889,17 @@ function weixin_weixin($request, $user) {
 				$scene_id=$eventkey;
 				if($uid=db_query('SELECT uid FROM {weixin_validation} WHERE expiration_time>=:time AND seed=:seed',
 					array(':time'=>time(), ':seed'=>$scene_id))->fetchField()) {
-					db_merge('users_weixin')->key(array('uid'=>$uid))->fields(array(
-						'uid' => $uid,
-						'wx_openid' => $request->username,
-						'status' => 1
-					))->execute();
-					$user=user_load($uid);
-					$t=t('You have now bind with !username.', array('!username'=>format_username($user)));
+					if($uid<>$user->uid) {
+						$t=t('You have already bound with !username.', array('!username'=>format_username($user)));
+					} else {
+						db_merge('users_weixin')->key(array('uid'=>$uid))->fields(array(
+							'uid' => $uid,
+							'wx_openid' => $request->username,
+							'status' => 1
+						))->execute();
+						$user=user_load($uid);
+						$t=t('You have now bind with !username.', array('!username'=>format_username($user)));
+					}
 					return $t;
 				}
 			}
